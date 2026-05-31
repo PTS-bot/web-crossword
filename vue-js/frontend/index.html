@@ -22,47 +22,6 @@
 </head>
 <body>
     <div class="app-container" id="app" v-cloak>
-        
-        <!-- Header Section -->
-        <header class="app-header">
-            <div class="brand">
-                <div class="brand-logo">
-                    <i class="fas fa-puzzle-piece" v-if="viewMode === 'player'"></i>
-                    <i class="fas fa-layer-group" v-else></i>
-                </div>
-                <div class="brand-info">
-                    <h1 v-if="viewMode === 'player'">เกมอักษรไขว้ (Crossword Game)</h1>
-                    <h1 v-else>Docker Vue.js Stack (Admin)</h1>
-                    <span class="sub" v-if="viewMode === 'player'">ท้าทายสมองและทบทวนความรู้ของคุณ</span>
-                    <span class="sub" v-else>Nginx + NodeJS + MongoDB + Vue.js</span>
-                </div>
-            </div>
-            
-            <div class="header-actions">
-                <button class="btn btn-sm btn-primary" v-if="viewMode === 'player'" @click="switchViewMode('admin')">
-                    <i class="fas fa-user-shield"></i> ผู้ดูแลระบบ (Admin)
-                </button>
-                <button class="btn btn-sm btn-outline" v-else @click="switchViewMode('player')">
-                    <i class="fas fa-gamepad"></i> กลับหน้าเกม (Play Game)
-                </button>
-                
-                <div class="user-status-widget" id="userWidget" style="display: inline-block; margin-left: 12px;" v-if="viewMode === 'admin'">
-                    <div class="widget-guest" v-if="!currentUser">
-                        <button class="btn btn-sm btn-outline" @click="switchTab('auth')">
-                            <i class="fas fa-sign-in-alt"></i> Login
-                        </button>
-                    </div>
-                    <div class="widget-user" v-else>
-                        <span class="badge badge-success">
-                            <i class="fas fa-user-shield"></i> <span>{{ currentUser.username }}</span>
-                        </span>
-                        <button class="btn btn-sm btn-danger" @click="logout" style="margin-left: 6px;" title="Logout">
-                            <i class="fas fa-sign-out-alt"></i>
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </header>
 
         <!-- Player Mode Layout -->
         <div class="player-layout" v-if="viewMode === 'player'">
@@ -287,8 +246,38 @@
         </div>
 
         <!-- Admin Mode Layout -->
+        <div class="admin-wrapper" v-if="viewMode === 'admin'">
 
-        <div class="main-layout" v-if="viewMode === 'admin'">
+            <!-- Admin slim header -->
+            <header class="admin-hbar">
+                <div class="admin-hbar-brand">
+                    <i class="fas fa-layer-group"></i>
+                    <span>Admin Panel</span>
+                    <span class="admin-hbar-sub">Nginx + NodeJS + MongoDB + Vue.js</span>
+                </div>
+                <div class="admin-hbar-right">
+                    <!-- Auth widget -->
+                    <div v-if="!currentUser">
+                        <button class="btn btn-sm btn-outline" @click="switchTab('auth')">
+                            <i class="fas fa-sign-in-alt"></i> Login
+                        </button>
+                    </div>
+                    <div v-else style="display:flex;align-items:center;gap:8px;">
+                        <span class="badge badge-success">
+                            <i class="fas fa-user-shield"></i> {{ currentUser.username }}
+                        </span>
+                        <button class="btn btn-sm btn-danger" @click="logout" title="Logout">
+                            <i class="fas fa-sign-out-alt"></i>
+                        </button>
+                    </div>
+                    <div class="ghb-sep" style="margin:0 6px;"></div>
+                    <button class="btn btn-sm btn-outline" @click="switchViewMode('player')">
+                        <i class="fas fa-gamepad"></i> กลับหน้าเกม
+                    </button>
+                </div>
+            </header>
+
+            <div class="main-layout">
             <!-- Sidebar Panel -->
             <aside class="app-sidebar">
                 <!-- Navigation -->
@@ -599,10 +588,11 @@
                 </section>
 
             </main>
-        </div>
+            </div><!-- /main-layout -->
+        </div><!-- /admin-wrapper -->
 
-        <!-- App Footer — hidden during game play to preserve full-height canvas -->
-        <footer class="app-footer" v-if="viewMode === 'admin' || gameState === 'setup'">
+        <!-- App Footer — shown only on setup screen -->
+        <footer class="app-footer" v-if="gameState === 'setup' && viewMode === 'player'">
             <p>Developed with ❤️ as a ready-to-use Dockerized Vue.js Web Application template.</p>
             <p class="copyright">&copy; 2026 Template Web Project (Vue.js Edition)</p>
         </footer>

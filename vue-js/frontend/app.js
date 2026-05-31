@@ -163,9 +163,11 @@ createApp({
             if (mode === 'admin') {
                 activeTab.value = 'crosswords';
                 fetchCrosswordDirs();
+                window.location.hash = 'admin';
             } else {
                 gameState.value = 'setup';
                 fetchCrosswordDirs();
+                window.location.hash = '';
             }
         };
 
@@ -1235,12 +1237,25 @@ createApp({
         };
 
         // --- Life Cycle Hooks ---
+        // --- 🔗 Hash-based admin routing ---
+        const applyHashRoute = () => {
+            const hash = window.location.hash.replace('#', '').toLowerCase();
+            if (hash === 'admin') {
+                viewMode.value = 'admin';
+                activeTab.value = 'crosswords';
+                fetchCrosswordDirs();
+            }
+        };
+
         onMounted(() => {
             checkHealth();
             setInterval(checkHealth, 10000);
             fetchUserProfile();
             fetchCrosswordDirs();
             fetchNotes();
+            // Route based on URL hash (e.g. /#admin)
+            applyHashRoute();
+            window.addEventListener('hashchange', applyHashRoute);
         });
 
         return {
