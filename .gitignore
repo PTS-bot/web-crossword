@@ -1,0 +1,32 @@
+# Dependency directories
+node_modules/
+jspm_packages/
+web_modules/
+
+# IDEs and editors
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Local environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Database storage
+mongodb_data/
+mongodb_for_all/
+web_proxy_mongo/
+
+# Log files
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*

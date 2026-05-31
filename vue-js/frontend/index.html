@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fullstack Web Template - Vue.js & Docker</title>
+    <!-- Modern Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="style.css">
+    <!-- Vue 3 Global Build CDN -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <style>
+        [v-cloak] {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container" id="app" v-cloak>
+        
+        <!-- Header Section -->
+        <header class="app-header">
+            <div class="brand">
+                <div class="brand-logo"><i class="fas fa-layer-group"></i></div>
+                <div class="brand-info">
+                    <h1>Docker Vue.js Stack</h1>
+                    <span class="sub">Nginx + NodeJS + MongoDB + Vue.js</span>
+                </div>
+            </div>
+            
+            <div class="user-status-widget" id="userWidget">
+                <div class="widget-guest" v-if="!currentUser">
+                    <span class="badge badge-warning">Guest Mode</span>
+                    <button class="btn btn-sm btn-outline" @click="switchTab('auth')">
+                        <i class="fas fa-sign-in-alt"></i> Login / Register
+                    </button>
+                </div>
+                <div class="widget-user" v-else>
+                    <span class="badge badge-success">
+                        <i class="fas fa-user-shield"></i> <span>{{ currentUser.username }}</span>
+                    </span>
+                    <button class="btn btn-sm btn-danger" @click="logout">
+                        <i class="fas fa-sign-out-alt"></i> Logout
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <div class="main-layout">
+            <!-- Sidebar Panel -->
+            <aside class="app-sidebar">
+                <!-- Navigation -->
+                <nav class="sidebar-nav">
+                    <button class="nav-btn" :class="{ active: activeTab === 'dashboard' }" @click="switchTab('dashboard')">
+                        <i class="fas fa-chart-line"></i> Dashboard
+                    </button>
+                    <button class="nav-btn" :class="{ active: activeTab === 'notes' }" @click="switchTab('notes')">
+                        <i class="fas fa-sticky-note"></i> Notes CRUD (DB Test)
+                    </button>
+                    <button class="nav-btn" :class="{ active: activeTab === 'auth' }" @click="switchTab('auth')">
+                        <i class="fas fa-user-lock"></i> Auth Settings
+                    </button>
+                </nav>
+
+                <!-- Health Check Widget -->
+                <div class="health-widget">
+                    <h3>Service Status</h3>
+                    <div class="status-list">
+                        <div class="status-item">
+                            <span class="label">Nginx (Web Proxy)</span>
+                            <span class="status-dot" :class="statusClass(serviceStatus.nginx)"></span>
+                        </div>
+                        <div class="status-item">
+                            <span class="label">NodeJS (Backend)</span>
+                            <span class="status-dot" :class="statusClass(serviceStatus.backend)"></span>
+                        </div>
+                        <div class="status-item">
+                            <span class="label">MongoDB (Database)</span>
+                            <span class="status-dot" :class="statusClass(serviceStatus.database)"></span>
+                        </div>
+                    </div>
+                    <button class="btn btn-block btn-sm" @click="checkHealth"><i class="fas fa-sync-alt"></i> Refresh Status</button>
+                </div>
+            </aside>
+
+            <!-- Main Content Area -->
+            <main class="app-content">
+                
+                <!-- Tab: Dashboard -->
+                <section class="tab-content" v-show="activeTab === 'dashboard'">
+                    <div class="welcome-banner">
+                        <h2>🚀 Vue.js Dockerized Web Template</h2>
+                        <p>This is a modern reactive fullstack template powered by Nginx, NodeJS (Express), MongoDB, and Vue.js. All services are fully dockerized with hot-reloading configurations enabled.</p>
+                    </div>
+
+                    <div class="features-grid">
+                        <div class="feature-card">
+                            <div class="icon-wrap color-nginx"><i class="fab fa-envira"></i></div>
+                            <h3>Nginx Proxy</h3>
+                            <p>Acts as web server serving Vue.js files and acts as reverse proxy, routing <code>/api/*</code> to NodeJS. Listens on host port <code>8080</code>.</p>
+                        </div>
+                        <div class="feature-card">
+                            <div class="icon-wrap color-node"><i class="fab fa-node-js"></i></div>
+                            <h3>NodeJS Backend</h3>
+                            <p>Scalable Express server running inside Node 18 Alpine. Leverages session tokens and Mongoose to interact with MongoDB.</p>
+                        </div>
+                        <div class="feature-card">
+                            <div class="icon-wrap color-db"><i class="fas fa-database"></i></div>
+                            <h3>MongoDB NoSQL</h3>
+                            <p>High performance document database. Holds user profiles and note collections with persistent host volume bindings.</p>
+                        </div>
+                    </div>
+
+                    <div class="guide-box">
+                        <h3><i class="fas fa-terminal"></i> Docker Management Commands</h3>
+                        <div class="code-terminal">
+                            <div class="terminal-line"><span class="cmd-comment"># Build and spin up the Vue.js stack</span></div>
+                            <div class="terminal-line"><span class="cmd-run">docker-compose up --build -d</span></div>
+                            
+                            <div class="terminal-line"><span class="cmd-comment"># Stream logs from all 3 services</span></div>
+                            <div class="terminal-line"><span class="cmd-run">docker-compose logs -f</span></div>
+                            
+                            <div class="terminal-line"><span class="cmd-comment"># Shut down stack without losing data</span></div>
+                            <div class="terminal-line"><span class="cmd-run">docker-compose down</span></div>
+
+                            <div class="terminal-line"><span class="cmd-comment"># Complete database reset</span></div>
+                            <div class="terminal-line"><span class="cmd-run">docker-compose down -v</span></div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Tab: Notes CRUD -->
+                <section class="tab-content" v-show="activeTab === 'notes'">
+                    <div class="crud-header">
+                        <div class="title-area">
+                            <h2>📝 Note Storage CRUD</h2>
+                            <p>Test your MongoDB database read, write, update, and delete operations below.</p>
+                        </div>
+                        <button class="btn btn-primary" @click="showNoteForm()"><i class="fas fa-plus"></i> New Note</button>
+                    </div>
+
+                    <!-- Note Form Card (Collapsed by default) -->
+                    <div class="form-card" v-if="showForm" id="noteFormCard">
+                        <h3>{{ noteForm.id ? 'Edit Note' : 'Create New Note' }}</h3>
+                        <form @submit.prevent="saveNote">
+                            <div class="form-group">
+                                <label for="noteTitle">Title</label>
+                                <input type="text" id="noteTitle" v-model="noteForm.title" required placeholder="Enter note title...">
+                            </div>
+                            <div class="form-group">
+                                <label for="noteContent">Content</label>
+                                <textarea id="noteContent" v-model="noteForm.content" rows="4" required placeholder="Write your note description here..."></textarea>
+                            </div>
+                            <div class="form-actions">
+                                <button type="button" class="btn btn-outline" @click="hideNoteForm">Cancel</button>
+                                <button type="submit" class="btn btn-primary">
+                                    {{ noteForm.id ? 'Update Note' : 'Save Note' }}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Notes Grid / List -->
+                    <div class="notes-grid">
+                        <!-- Loader -->
+                        <div class="loader-placeholder" v-if="notesLoading">
+                            <i class="fas fa-spinner fa-spin"></i> Loading notes from MongoDB...
+                        </div>
+
+                        <!-- Empty State -->
+                        <div class="loader-placeholder" v-else-if="currentNotes.length === 0">
+                            <i class="far fa-folder-open" style="font-size: 2rem; margin-bottom: 12px; display: block;"></i>
+                            No notes found in MongoDB. Create the first one!
+                        </div>
+
+                        <!-- Notes List -->
+                        <div class="note-item" v-for="note in currentNotes" :key="note._id" v-else>
+                            <div class="note-header">
+                                <h4>{{ note.title }}</h4>
+                                <div class="note-actions" v-if="canEdit(note)">
+                                    <button class="btn btn-xs btn-outline" @click="editNote(note)" title="Edit Note">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button class="btn btn-xs btn-outline btn-danger" @click="deleteNote(note._id)" title="Delete Note">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="note-body">{{ note.content }}</div>
+                            <div class="note-footer">
+                                <span class="creator"><i class="far fa-user"></i> {{ note.createdBy }}</span>
+                                <span class="date">{{ formatDate(note.createdAt) }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Tab: Auth Settings -->
+                <section class="tab-content" v-show="activeTab === 'auth'">
+                    <div class="auth-section-title">
+                        <h2><i class="fas fa-user-shield"></i> Authentication Controller</h2>
+                        <p>Simulate user registration and sessions storage in MongoDB database.</p>
+                    </div>
+
+                    <div class="auth-grid">
+                        <!-- Login Box -->
+                        <div class="auth-card" id="loginCard">
+                            <h3><i class="fas fa-sign-in-alt"></i> Login</h3>
+                            <form @submit.prevent="handleLogin">
+                                <div class="form-group">
+                                    <label>Username</label>
+                                    <input type="text" v-model="authForm.loginUsername" required placeholder="admin">
+                                </div>
+                                <div class="form-group">
+                                    <label>Password</label>
+                                    <input type="password" v-model="authForm.loginPassword" required placeholder="admin1234">
+                                </div>
+                                <button type="submit" class="btn btn-primary btn-block">Sign In</button>
+                            </form>
+                            <p class="auth-hint">Default Account: <code>admin</code> / <code>admin1234</code></p>
+                        </div>
+
+                        <!-- Register Box -->
+                        <div class="auth-card" id="registerCard">
+                            <h3><i class="fas fa-user-plus"></i> Register</h3>
+                            <form @submit.prevent="handleRegister">
+                                <div class="form-group">
+                                    <label>New Username</label>
+                                    <input type="text" v-model="authForm.regUsername" required placeholder="Enter username...">
+                                </div>
+                                <div class="form-group">
+                                    <label>New Password</label>
+                                    <input type="password" v-model="authForm.regPassword" required placeholder="Enter password...">
+                                </div>
+                                <button type="submit" class="btn btn-success btn-block">Create Account</button>
+                            </form>
+                        </div>
+                    </div>
+                </section>
+
+            </main>
+        </div>
+
+        <!-- App Footer -->
+        <footer class="app-footer">
+            <p>Developed with ❤️ as a ready-to-use Dockerized Vue.js Web Application template.</p>
+            <p class="copyright">&copy; 2026 Template Web Project (Vue.js Edition)</p>
+        </footer>
+
+        <!-- Notification Toast -->
+        <div id="toast" class="toast" :class="{ hidden: !toast.show }" :style="{ borderColor: toastBorderColor }">
+            <span v-html="toast.message"></span>
+        </div>
+    </div>
+
+    <!-- Application Code -->
+    <script src="app.js"></script>
+</body>
+</html>

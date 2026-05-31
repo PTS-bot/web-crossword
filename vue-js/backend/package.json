@@ -1,0 +1,19 @@
+{
+  "name": "nodejs-backend-template",
+  "version": "1.0.0",
+  "description": "Clean NodeJS Backend Template with Express and Mongoose",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "express-session": "^1.18.0",
+    "mongoose": "^8.3.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0"
+  }
+}
