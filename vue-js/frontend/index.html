@@ -107,6 +107,7 @@
 
                 <!-- Game Header Bar -->
                 <div class="game-hbar">
+                    <!-- Left: back + info -->
                     <div class="game-hbar-left">
                         <button class="ghb-btn ghb-back" @click="resetGameSetup" title="ย้อนกลับ">
                             <i class="fas fa-arrow-left"></i>
@@ -118,31 +119,52 @@
                         </div>
                     </div>
 
+                    <!-- Center: main action buttons -->
                     <div class="game-hbar-center">
-                        <button class="ghb-btn" @click="zoomOut" title="Zoom Out"><i class="fas fa-minus"></i></button>
-                        <span class="ghb-zoom">{{ Math.round(zoomScale * 100) }}%</span>
-                        <button class="ghb-btn" @click="zoomIn" title="Zoom In"><i class="fas fa-plus"></i></button>
-                        <button class="ghb-btn ghb-fit" @click="zoomReset" title="Fit to screen">
-                            <i class="fas fa-compress-arrows-alt"></i>
-                        </button>
-                    </div>
-
-                    <div class="game-hbar-right">
                         <button class="ghb-btn ghb-clues" @click="showCluesModal = true" title="ดูคำใบ้">
                             <i class="fas fa-book-open"></i>
                             <span>คำใบ้</span>
                         </button>
+
+                        <button class="ghb-btn ghb-fit" @click="zoomReset" title="จัดกึ่งกลาง">
+                            <i class="fas fa-compress-arrows-alt"></i>
+                        </button>
+
+                        <!-- Reveal Toggle -->
+                        <button class="ghb-btn ghb-reveal"
+                                :class="{ 'ghb-reveal-on': revealMode }"
+                                @click="toggleRevealMode"
+                                :title="revealMode ? 'ปิดโหมดเฉลย (ดับเบิลคลิกช่องเพื่อเปิดตัวอักษร)' : 'เปิดโหมดเฉลย'">
+                            <i class="fas fa-eye"></i>
+                            <span>{{ revealMode ? 'เฉลย ON' : 'เฉลย' }}</span>
+                        </button>
+
                         <button class="ghb-btn ghb-reset" @click="resetGuesses" title="ล้างคำตอบ">
                             <i class="fas fa-undo"></i>
                         </button>
+
                         <button class="ghb-btn ghb-check" @click="checkAnswers" title="ตรวจคำตอบ">
                             <i class="fas fa-check-double"></i>
                             <span>ตรวจ</span>
                         </button>
-                        <div class="ghb-sep"></div>
-                        <button class="ghb-btn ghb-admin" @click="switchViewMode('admin')" title="Admin">
-                            <i class="fas fa-user-shield"></i>
-                        </button>
+                    </div>
+
+                    <!-- Right: empty spacer for balance -->
+                    <div class="game-hbar-right"></div>
+                </div>
+
+                <!-- Stats Panel (floating) -->
+                <div class="game-stats-panel">
+                    <div class="stats-item">
+                        <i class="fas fa-clock"></i>
+                        <span class="stats-label">เวลา</span>
+                        <span class="stats-value">{{ timerDisplay }}</span>
+                    </div>
+                    <div class="stats-divider"></div>
+                    <div class="stats-item" :class="{ 'stats-warn': revealCount > 0 }">
+                        <i class="fas fa-eye"></i>
+                        <span class="stats-label">เฉลย</span>
+                        <span class="stats-value">{{ revealCount }}</span>
                     </div>
                 </div>
 
@@ -169,10 +191,12 @@
                                          'cell-focused': isCellFocused(rIdx, cIdx),
                                          'cell-active-word': isCellInActiveWord(rIdx, cIdx),
                                          'cell-correct': cell.checked && cell.isCorrect,
-                                         'cell-incorrect': cell.checked && !cell.isCorrect
+                                         'cell-incorrect': cell.checked && !cell.isCorrect,
+                                         'cell-revealed': cell.revealed
                                      }"
                                      @pointerdown.stop
-                                     @click="focusCell(rIdx, cIdx)">
+                                     @click="focusCell(rIdx, cIdx)"
+                                     @dblclick.stop="revealCell(rIdx, cIdx)">
 
                                      <span class="cell-number" v-if="cell.isActive && cell.number">{{ cell.number }}</span>
 
@@ -192,8 +216,12 @@
                     <!-- Pan/Zoom hint -->
                     <div class="canvas-hint">
                         <i class="fas fa-hand-paper"></i> ลากเพื่อเลื่อน &nbsp;·&nbsp; เลื่อนล้อเมาส์เพื่อซูม
+                        <span v-if="revealMode" class="hint-reveal-mode">
+                            &nbsp;·&nbsp; <i class="fas fa-eye"></i> ดับเบิลคลิกช่องเพื่อเปิดเฉลย
+                        </span>
                     </div>
                 </div>
+
 
                 <!-- Clues Modal Popup -->
                 <transition name="modal-fade">

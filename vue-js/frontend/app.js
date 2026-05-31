@@ -25,6 +25,27 @@ createApp({
         // Crossword Play States
         const gameState = ref('setup'); // 'setup', 'playing', 'completed'
         const showCluesModal = ref(false);
+        const revealMode = ref(false);   // toggle to allow dblclick reveal
+        const revealCount = ref(0);      // how many cells have been revealed
+
+        // Timer state
+        const timerSeconds = ref(0);
+        let _timerInterval = null;
+        const timerDisplay = computed(() => {
+            const s = timerSeconds.value;
+            const m = Math.floor(s / 60);
+            const sec = s % 60;
+            return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+        });
+
+        const startTimer = () => {
+            stopTimer();
+            timerSeconds.value = 0;
+            _timerInterval = setInterval(() => { timerSeconds.value++; }, 1000);
+        };
+        const stopTimer = () => {
+            if (_timerInterval) { clearInterval(_timerInterval); _timerInterval = null; }
+        };
         const playConfig = reactive({
             directory: '',
             wordCount: 10
@@ -598,6 +619,9 @@ createApp({
                 downClues.value = generated.downClues;
                 
                 gameState.value = 'playing';
+                startTimer();
+                revealMode.value = false;
+                revealCount.value = 0;
 
                 // Automatically focus the first cell of the first clue
                 nextTick(() => {
@@ -973,6 +997,32 @@ createApp({
             });
         };
 
+        const toggleRevealMode = () => {
+            revealMode.value = !revealMode.value;
+            if (revealMode.value) {
+                showToast('👁️ โหมดเฉลย ON — ดับเบิลคลิกที่ช่องเพื่อเปิดเฉลยตัวอักษร', 'warning');
+            } else {
+                showToast('🔒 ปิดโหมดเฉลยแล้ว', 'info');
+            }
+        };
+
+        const revealCell = (row, col) => {
+            if (!revealMode.value) return;
+            const cell = gridCells.value[row][col];
+            if (!cell || !cell.isActive) return;
+            if (cell.revealed) return; // already revealed
+            cell.guess = cell.char;
+            cell.revealed = true;
+            cell.checked = true;
+            cell.isCorrect = true;
+            revealCount.value++;
+            // Focus the input briefly to show the letter
+            nextTick(() => {
+                const el = document.getElementById(`cell-input-${row}-${col}`);
+                if (el) el.focus();
+            });
+        };
+
         const resetGuesses = () => {
             if (!confirm('คุณต้องการรีเซ็ตอักษรที่พิมพ์ลงไปทั้งหมดในตารางใช่หรือไม่?')) return;
             gridCells.value.forEach(row => {
@@ -981,9 +1031,11 @@ createApp({
                         cell.guess = '';
                         cell.checked = false;
                         cell.isCorrect = false;
+                        cell.revealed = false;
                     }
                 });
             });
+            revealCount.value = 0;
             showToast('🔄 ล้างข้อมูลตัวอักษรเรียบร้อยแล้ว', 'info');
         };
 
@@ -1000,6 +1052,11 @@ createApp({
             panX.value = 0;
             panY.value = 0;
             zoomScale.value = 1.0;
+            // Reset reveal & timer
+            revealMode.value = false;
+            revealCount.value = 0;
+            stopTimer();
+            timerSeconds.value = 0;
         };
 
         const checkAnswers = () => {
@@ -1036,7 +1093,8 @@ createApp({
 
             if (allCorrect) {
                 gameState.value = 'completed';
-                showToast('🏆 ยินดีด้วย! คุณไขปริศนาสำเร็จแล้ว ถูกต้องทั้งหมด!', 'success');
+                stopTimer();
+                showToast('🏆 ยอดเยี่ยม! คุณตอบคำถามถูกต้องทั้งหมด!', 'success');
             } else {
                 if (emptyCells > 0) {
                     showToast('❌ ตรวจสอบแล้ว พบตัวอักษรที่ผิด และยังมีช่องว่างที่เติมไม่ครบ', 'error');
@@ -1236,6 +1294,11 @@ createApp({
             // Crossword Play States & Actions
             gameState,
             showCluesModal,
+            revealMode,
+            revealCount,
+            timerDisplay,
+            toggleRevealMode,
+            revealCell,
             playConfig,
             maxAvailableWords,
             requestedCount,

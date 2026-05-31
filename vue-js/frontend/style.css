@@ -1803,3 +1803,114 @@ body {
     .game-hbar { padding: 0 8px; gap: 4px; }
     .ghb-btn span { display: none; }
 }
+
+/* ============================================================
+   📊 GAME STATS PANEL (floating box top-right)
+   ============================================================ */
+.game-stats-panel {
+    position: absolute;
+    top: 62px; /* just below header bar */
+    right: 16px;
+    z-index: 20;
+    background: rgba(18, 24, 36, 0.92);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    backdrop-filter: blur(12px);
+    box-shadow: var(--shadow-lg), 0 0 0 1px rgba(255,255,255,0.04);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-width: 90px;
+}
+
+.stats-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 10px 16px;
+    gap: 3px;
+    transition: background 0.2s;
+}
+.stats-item i {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-bottom: 1px;
+}
+.stats-label {
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+}
+.stats-value {
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: var(--text-main);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.04em;
+}
+.stats-divider {
+    height: 1px;
+    background: var(--border-color);
+    margin: 0;
+}
+.stats-warn i { color: var(--warning) !important; }
+.stats-warn .stats-value { color: var(--warning); }
+
+/* ============================================================
+   👁️ REVEAL TOGGLE BUTTON
+   ============================================================ */
+.ghb-reveal {
+    border-color: rgba(255, 179, 0, 0.25);
+    color: var(--text-muted);
+    transition: all 0.2s;
+}
+.ghb-reveal:hover {
+    border-color: rgba(255, 179, 0, 0.5);
+    color: var(--warning);
+    background: rgba(255, 179, 0, 0.08);
+}
+.ghb-reveal-on {
+    background: rgba(255, 179, 0, 0.15) !important;
+    border-color: var(--warning) !important;
+    color: var(--warning) !important;
+    box-shadow: 0 0 10px rgba(255, 179, 0, 0.25);
+    animation: pulse-reveal 1.8s ease-in-out infinite;
+}
+
+@keyframes pulse-reveal {
+    0%, 100% { box-shadow: 0 0 8px rgba(255, 179, 0, 0.2); }
+    50%       { box-shadow: 0 0 18px rgba(255, 179, 0, 0.45); }
+}
+
+/* ============================================================
+   🔓 REVEALED CELL STYLE
+   ============================================================ */
+.cell-revealed {
+    background: rgba(255, 179, 0, 0.12) !important;
+    border-color: rgba(255, 179, 0, 0.5) !important;
+}
+.cell-revealed .cell-input {
+    color: var(--warning) !important;
+    font-weight: 800 !important;
+}
+
+/* Hint text for reveal mode */
+.hint-reveal-mode {
+    color: var(--warning);
+    font-weight: 500;
+}
+
+/* Center layout: game-hbar-center gets full control */
+.game-hbar-left,
+.game-hbar-right {
+    flex: 1;
+    min-width: 0;
+}
+.game-hbar-center {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
