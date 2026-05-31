@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fullstack Web Template - Vue.js & Docker</title>
+    <title>Web Crossword Game - หมวดการเรียนรู้</title>
     <!-- Modern Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -26,36 +26,248 @@
         <!-- Header Section -->
         <header class="app-header">
             <div class="brand">
-                <div class="brand-logo"><i class="fas fa-layer-group"></i></div>
+                <div class="brand-logo">
+                    <i class="fas fa-puzzle-piece" v-if="viewMode === 'player'"></i>
+                    <i class="fas fa-layer-group" v-else></i>
+                </div>
                 <div class="brand-info">
-                    <h1>Docker Vue.js Stack</h1>
-                    <span class="sub">Nginx + NodeJS + MongoDB + Vue.js</span>
+                    <h1 v-if="viewMode === 'player'">เกมอักษรไขว้ (Crossword Game)</h1>
+                    <h1 v-else>Docker Vue.js Stack (Admin)</h1>
+                    <span class="sub" v-if="viewMode === 'player'">ท้าทายสมองและทบทวนความรู้ของคุณ</span>
+                    <span class="sub" v-else>Nginx + NodeJS + MongoDB + Vue.js</span>
                 </div>
             </div>
             
-            <div class="user-status-widget" id="userWidget">
-                <div class="widget-guest" v-if="!currentUser">
-                    <span class="badge badge-warning">Guest Mode</span>
-                    <button class="btn btn-sm btn-outline" @click="switchTab('auth')">
-                        <i class="fas fa-sign-in-alt"></i> Login / Register
-                    </button>
-                </div>
-                <div class="widget-user" v-else>
-                    <span class="badge badge-success">
-                        <i class="fas fa-user-shield"></i> <span>{{ currentUser.username }}</span>
-                    </span>
-                    <button class="btn btn-sm btn-danger" @click="logout">
-                        <i class="fas fa-sign-out-alt"></i> Logout
-                    </button>
+            <div class="header-actions">
+                <button class="btn btn-sm btn-primary" v-if="viewMode === 'player'" @click="switchViewMode('admin')">
+                    <i class="fas fa-user-shield"></i> ผู้ดูแลระบบ (Admin)
+                </button>
+                <button class="btn btn-sm btn-outline" v-else @click="switchViewMode('player')">
+                    <i class="fas fa-gamepad"></i> กลับหน้าเกม (Play Game)
+                </button>
+                
+                <div class="user-status-widget" id="userWidget" style="display: inline-block; margin-left: 12px;" v-if="viewMode === 'admin'">
+                    <div class="widget-guest" v-if="!currentUser">
+                        <button class="btn btn-sm btn-outline" @click="switchTab('auth')">
+                            <i class="fas fa-sign-in-alt"></i> Login
+                        </button>
+                    </div>
+                    <div class="widget-user" v-else>
+                        <span class="badge badge-success">
+                            <i class="fas fa-user-shield"></i> <span>{{ currentUser.username }}</span>
+                        </span>
+                        <button class="btn btn-sm btn-danger" @click="logout" style="margin-left: 6px;" title="Logout">
+                            <i class="fas fa-sign-out-alt"></i>
+                        </button>
+                    </div>
                 </div>
             </div>
         </header>
 
-        <div class="main-layout">
+        <!-- Player Mode Layout -->
+        <div class="player-layout" v-if="viewMode === 'player'">
+            <!-- Game Setup Screen -->
+            <div class="game-setup-container" v-if="gameState === 'setup'">
+                <div class="setup-card animate-slide-down">
+                    <div class="setup-icon"><i class="fas fa-gamepad"></i></div>
+                    <h2>เริ่มต้นเล่นเกม Crossword</h2>
+                    <p class="setup-desc">กรุณาเลือกหมวดหมู่โจทย์ (Lab) และกำหนดจำนวนคำศัพท์ที่ต้องการเล่นด้านล่าง</p>
+                    
+                    <form @submit.prevent="startGame">
+                        <div class="form-group">
+                            <label for="labSelect">เลือกหมวดหมู่โจทย์ (Lab)</label>
+                            <select id="labSelect" v-model="playConfig.directory" required class="form-control-select">
+                                <option value="" disabled>-- กรุณาเลือกหมวดหมู่ --</option>
+                                <option v-for="dir in crosswordDirs" :key="dir.name" :value="dir.name">
+                                    {{ dir.name }}
+                                </option>
+                            </select>
+                            <p class="form-hint" v-if="crosswordDirs.length === 0">
+                                <i class="fas fa-exclamation-triangle"></i> ยังไม่มีหมวดหมู่โจทย์ในระบบ กรุณาเข้าหน้าผู้ดูแลระบบเพื่อสร้างหมวดหมู่และอัปโหลดไฟล์ CSV
+                            </p>
+                        </div>
+                        
+                        <div class="form-group" v-if="playConfig.directory">
+                            <label for="wordCountInput">จำนวนคำศัพท์ที่ต้องการสุ่ม: {{ playConfig.wordCount }} คำ</label>
+                            <div class="range-wrap">
+                                <input type="range" id="wordCountInput" v-model.number="playConfig.wordCount" min="3" :max="Math.max(3, maxAvailableWords)" step="1">
+                                <span class="range-val">{{ playConfig.wordCount }} / {{ maxAvailableWords }} คำ</span>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary btn-block btn-lg" :disabled="crosswordDirs.length === 0 || !playConfig.directory">
+                            <i class="fas fa-play"></i> เริ่มเล่นเกม
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Game Playing Screen — Header + Full Canvas -->
+            <div class="game-play-container animate-fade-in" v-else-if="gameState === 'playing' || gameState === 'completed'">
+
+                <!-- Game Header Bar -->
+                <div class="game-hbar">
+                    <div class="game-hbar-left">
+                        <button class="ghb-btn ghb-back" @click="resetGameSetup" title="ย้อนกลับ">
+                            <i class="fas fa-arrow-left"></i>
+                        </button>
+                        <div class="ghb-sep"></div>
+                        <div class="ghb-info">
+                            <span class="ghb-dir"><i class="fas fa-folder-open"></i> {{ playConfig.directory }}</span>
+                            <span class="ghb-count">{{ placedWords.length }}/{{ requestedCount }} คำ</span>
+                        </div>
+                    </div>
+
+                    <div class="game-hbar-center">
+                        <button class="ghb-btn" @click="zoomOut" title="Zoom Out"><i class="fas fa-minus"></i></button>
+                        <span class="ghb-zoom">{{ Math.round(zoomScale * 100) }}%</span>
+                        <button class="ghb-btn" @click="zoomIn" title="Zoom In"><i class="fas fa-plus"></i></button>
+                        <button class="ghb-btn ghb-fit" @click="zoomReset" title="Fit to screen">
+                            <i class="fas fa-compress-arrows-alt"></i>
+                        </button>
+                    </div>
+
+                    <div class="game-hbar-right">
+                        <button class="ghb-btn ghb-clues" @click="showCluesModal = true" title="ดูคำใบ้">
+                            <i class="fas fa-book-open"></i>
+                            <span>คำใบ้</span>
+                        </button>
+                        <button class="ghb-btn ghb-reset" @click="resetGuesses" title="ล้างคำตอบ">
+                            <i class="fas fa-undo"></i>
+                        </button>
+                        <button class="ghb-btn ghb-check" @click="checkAnswers" title="ตรวจคำตอบ">
+                            <i class="fas fa-check-double"></i>
+                            <span>ตรวจ</span>
+                        </button>
+                        <div class="ghb-sep"></div>
+                        <button class="ghb-btn ghb-admin" @click="switchViewMode('admin')" title="Admin">
+                            <i class="fas fa-user-shield"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Infinite Canvas Viewport -->
+                <div class="canvas-viewport"
+                     ref="canvasViewport"
+                     @pointerdown="startPanning"
+                     @pointermove="panning"
+                     @pointerup="stopPanning"
+                     @pointercancel="stopPanning"
+                     @wheel.prevent="handleZoom"
+                     :style="{ cursor: isDragging ? 'grabbing' : 'grab' }">
+
+                    <!-- Grid transform layer -->
+                    <div class="grid-board-outer"
+                         :style="{ transform: `translate(${panX}px, ${panY}px) scale(${zoomScale})`, transformOrigin: '0 0' }">
+                        <div class="grid-board" :style="gridBoardStyle">
+                            <div v-for="(row, rIdx) in gridCells" :key="'r-'+rIdx" class="grid-row">
+                                <div v-for="(cell, cIdx) in row" :key="'c-'+cIdx"
+                                     class="grid-cell"
+                                     :class="{
+                                         'cell-empty': !cell.isActive,
+                                         'cell-letter': cell.isActive,
+                                         'cell-focused': isCellFocused(rIdx, cIdx),
+                                         'cell-active-word': isCellInActiveWord(rIdx, cIdx),
+                                         'cell-correct': cell.checked && cell.isCorrect,
+                                         'cell-incorrect': cell.checked && !cell.isCorrect
+                                     }"
+                                     @pointerdown.stop
+                                     @click="focusCell(rIdx, cIdx)">
+
+                                     <span class="cell-number" v-if="cell.isActive && cell.number">{{ cell.number }}</span>
+
+                                     <input v-if="cell.isActive"
+                                            :id="'cell-input-' + rIdx + '-' + cIdx"
+                                            type="text"
+                                            maxlength="1"
+                                            v-model="cell.guess"
+                                            @keydown="handleCellKeydown($event, rIdx, cIdx)"
+                                            class="cell-input"
+                                            autocomplete="off">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Pan/Zoom hint -->
+                    <div class="canvas-hint">
+                        <i class="fas fa-hand-paper"></i> ลากเพื่อเลื่อน &nbsp;·&nbsp; เลื่อนล้อเมาส์เพื่อซูม
+                    </div>
+                </div>
+
+                <!-- Clues Modal Popup -->
+                <transition name="modal-fade">
+                    <div class="clues-modal-overlay" v-if="showCluesModal" @click.self="showCluesModal = false">
+                        <div class="clues-modal">
+                            <div class="clues-modal-header">
+                                <h3><i class="fas fa-book-open"></i> คำใบ้ทั้งหมด</h3>
+                                <button class="clues-modal-close" @click="showCluesModal = false">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                            <div class="clues-modal-body">
+                                <div class="clues-col">
+                                    <div class="clues-title"><i class="fas fa-arrow-right"></i> แนวนอน (Across)</div>
+                                    <div class="clues-list">
+                                        <div v-for="clue in acrossClues"
+                                             :key="'ma-'+clue.number"
+                                             class="clue-item"
+                                             :class="{ 'clue-active': isClueActive(clue), 'clue-filled': isClueFilled(clue) }"
+                                             @click="selectClue(clue); showCluesModal = false">
+                                            <span class="clue-number">{{ clue.number }}</span>
+                                            <span class="clue-text">{{ clue.clue }}</span>
+                                            <span class="clue-length">({{ clue.word.length }})</span>
+                                        </div>
+                                        <div v-if="acrossClues.length === 0" class="clues-empty">ไม่มีคำใบ้แนวนอน</div>
+                                    </div>
+                                </div>
+                                <div class="clues-col">
+                                    <div class="clues-title"><i class="fas fa-arrow-down"></i> แนวตั้ง (Down)</div>
+                                    <div class="clues-list">
+                                        <div v-for="clue in downClues"
+                                             :key="'md-'+clue.number"
+                                             class="clue-item"
+                                             :class="{ 'clue-active': isClueActive(clue), 'clue-filled': isClueFilled(clue) }"
+                                             @click="selectClue(clue); showCluesModal = false">
+                                            <span class="clue-number">{{ clue.number }}</span>
+                                            <span class="clue-text">{{ clue.clue }}</span>
+                                            <span class="clue-length">({{ clue.word.length }})</span>
+                                        </div>
+                                        <div v-if="downClues.length === 0" class="clues-empty">ไม่มีคำใบ้แนวตั้ง</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </transition>
+
+            </div>
+
+            <!-- Success Overlay -->
+            <div class="success-overlay" v-if="gameState === 'completed'">
+                <div class="success-card animate-slide-down">
+                    <div class="success-icon"><i class="fas fa-trophy"></i></div>
+                    <h2>ยินดีด้วย! คุณเก่งมาก!</h2>
+                    <p>คุณตอบคำถามถูกต้องครบถ้วนทุกช่องตารางแล้ว</p>
+                    <div class="success-actions">
+                        <button class="btn btn-primary" @click="resetGameSetup">
+                            <i class="fas fa-redo"></i> เล่นใหม่อีกครั้ง
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Admin Mode Layout -->
+
+        <div class="main-layout" v-if="viewMode === 'admin'">
             <!-- Sidebar Panel -->
             <aside class="app-sidebar">
                 <!-- Navigation -->
                 <nav class="sidebar-nav">
+                    <button class="nav-btn" :class="{ active: activeTab === 'crosswords' }" @click="switchTab('crosswords')">
+                        <i class="fas fa-puzzle-piece"></i> จัดการคลังโจทย์
+                    </button>
                     <button class="nav-btn" :class="{ active: activeTab === 'dashboard' }" @click="switchTab('dashboard')">
                         <i class="fas fa-chart-line"></i> Dashboard
                     </button>
@@ -90,6 +302,121 @@
 
             <!-- Main Content Area -->
             <main class="app-content">
+                
+                <!-- Tab: Crossword Admin Manager -->
+                <section class="tab-content" v-show="activeTab === 'crosswords'">
+                    <div class="crud-header">
+                        <div class="title-area">
+                            <h2>🧩 จัดการคลังโจทย์อักษรไขว้ (Crossword Manager)</h2>
+                            <p>ผู้ดูแลระบบสามารถสร้างหมวดหมู่โจทย์และลากไฟล์ CSV เพื่อนำเข้าคำศัพท์ได้</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Admin Authentication check -->
+                    <div class="admin-auth-warning" v-if="!currentUser || currentUser.role !== 'admin'">
+                        <div class="warning-box">
+                            <i class="fas fa-lock"></i>
+                            <h3>จำเป็นต้องลงชื่อเข้าใช้ในฐานะผู้ดูแลระบบ</h3>
+                            <p>กรุณาลงชื่อเข้าใช้งานด้วยสิทธิ์ผู้ดูแลระบบ (Admin) เพื่อจัดการโจทย์เกม</p>
+                            <button class="btn btn-primary" @click="switchTab('auth')">
+                                <i class="fas fa-sign-in-alt"></i> ไปหน้าล็อกอิน
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="crossword-admin-grid" v-else>
+                        <!-- Left Panel: Directory/Category List -->
+                        <div class="admin-card">
+                            <h3><i class="fas fa-folder-plus"></i> สร้างหมวดหมู่ (Directory)</h3>
+                            <form @submit.prevent="createDirectory" class="inline-form">
+                                <div class="form-group flex-1">
+                                    <input type="text" v-model="newDirName" required placeholder="เช่น network_lv4, vocab_easy">
+                                </div>
+                                <button type="submit" class="btn btn-primary">สร้าง</button>
+                            </form>
+                            
+                            <hr class="card-divider">
+                            
+                            <h3><i class="fas fa-list"></i> รายการหมวดหมู่ทั้งหมด</h3>
+                            <div class="dirs-list">
+                                <div class="loader-placeholder" v-if="dirsLoading">
+                                    <i class="fas fa-spinner fa-spin"></i> กำลังโหลด...
+                                </div>
+                                <div class="loader-placeholder" v-else-if="crosswordDirs.length === 0">
+                                    ยังไม่มีหมวดหมู่โจทย์ในระบบ
+                                </div>
+                                <div v-for="dir in crosswordDirs" :key="dir.name" 
+                                     class="dir-list-item" 
+                                     :class="{ 'dir-selected': selectedAdminDir === dir.name }">
+                                    <div class="dir-info" @click="selectAdminDir(dir.name)">
+                                        <span class="dir-icon"><i class="fas fa-folder"></i></span>
+                                        <span class="dir-name">{{ dir.name }}</span>
+                                    </div>
+                                    <button class="btn btn-xs btn-outline btn-danger" @click="deleteDirectory(dir.name)" title="ลบหมวดหมู่นี้">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Right Panel: Drag & Drop CSV Uploader -->
+                        <div class="admin-card">
+                            <h3><i class="fas fa-file-upload"></i> อัปโหลดไฟล์โจทย์ (CSV)</h3>
+                            
+                            <div class="form-group">
+                                <label>เลือกหมวดหมู่ที่จะนำเข้าข้อมูล</label>
+                                <select v-model="uploadTargetDir" class="form-control-select">
+                                    <option value="" disabled>-- กรุณาเลือกหมวดหมู่ --</option>
+                                    <option v-for="dir in crosswordDirs" :key="dir.name" :value="dir.name">
+                                        {{ dir.name }}
+                                    </option>
+                                </select>
+                            </div>
+                            
+                            <!-- Drag & Drop Zone -->
+                            <div class="drag-drop-zone" 
+                                 :class="{ 'drag-over': isDragOver }"
+                                 @dragover.prevent="onDragOver"
+                                 @dragleave.prevent="onDragLeave"
+                                 @drop.prevent="onDropFile"
+                                 @click="triggerFileInput">
+                                <input type="file" ref="fileInput" @change="onFileSelected" accept=".csv" style="display: none;">
+                                <div class="drag-drop-content">
+                                    <i class="fas fa-cloud-upload-alt"></i>
+                                    <p class="title">ลากไฟล์ CSV มาวางที่นี่ หรือคลิกเพื่อเลือกไฟล์</p>
+                                    <p class="subtitle">รูปแบบไฟล์ CSV: คอลัมน์ที่ 1 = คำศัพท์ , คอลัมน์ที่ 2 = คำใบ้</p>
+                                </div>
+                            </div>
+                            
+                            <!-- File Info & Upload Preview -->
+                            <div v-if="parsedFileWords.length > 0" class="upload-preview-box">
+                                <div class="preview-header">
+                                    <span><i class="fas fa-file-csv"></i> {{ selectedFileName }} ({{ parsedFileWords.length }} คำ)</span>
+                                    <button class="btn btn-xs btn-outline btn-danger" @click="clearParsedFile">ล้างไฟล์</button>
+                                </div>
+                                <div class="preview-scroll">
+                                    <table class="preview-table">
+                                        <thead>
+                                            <tr>
+                                                <th>คำศัพท์</th>
+                                                <th>คำใบ้</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr v-for="(w, idx) in parsedFileWords" :key="idx">
+                                                <td><code>{{ w.word }}</code></td>
+                                                <td>{{ w.clue }}</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <button class="btn btn-success btn-block" @click="submitUploadedWords" :disabled="!uploadTargetDir">
+                                    <i class="fas fa-save"></i> บันทึกข้อมูลลงหมวดหมู่ {{ uploadTargetDir }}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </section>
                 
                 <!-- Tab: Dashboard -->
                 <section class="tab-content" v-show="activeTab === 'dashboard'">
@@ -246,8 +573,8 @@
             </main>
         </div>
 
-        <!-- App Footer -->
-        <footer class="app-footer">
+        <!-- App Footer — hidden during game play to preserve full-height canvas -->
+        <footer class="app-footer" v-if="viewMode === 'admin' || gameState === 'setup'">
             <p>Developed with ❤️ as a ready-to-use Dockerized Vue.js Web Application template.</p>
             <p class="copyright">&copy; 2026 Template Web Project (Vue.js Edition)</p>
         </footer>

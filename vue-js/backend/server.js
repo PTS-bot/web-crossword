@@ -68,6 +68,22 @@ const noteSchema = new mongoose.Schema({
 const User = mongoose.model('User', userSchema);
 const Note = mongoose.model('Note', noteSchema);
 
+// --- Crossword Schemas ---
+const directorySchema = new mongoose.Schema({
+    name: { type: String, unique: true, required: true },
+    createdAt: { type: Date, default: Date.now }
+});
+
+const crosswordWordSchema = new mongoose.Schema({
+    directory: { type: String, required: true },
+    word: { type: String, required: true },
+    clue: { type: String, required: true },
+    createdAt: { type: Date, default: Date.now }
+});
+
+const Directory = mongoose.model('Directory', directorySchema);
+const CrosswordWord = mongoose.model('CrosswordWord', crosswordWordSchema);
+
 // --- 4. Helper: Create default admin if not exists ---
 async function initDefaultAdmin() {
     try {
@@ -267,6 +283,118 @@ app.delete('/api/notes/:id', async (req, res) => {
 
         await Note.findByIdAndDelete(noteId);
         res.json({ success: true, message: 'Note deleted successfully!' });
+    } catch (e) {
+        res.status(500).json({ success: false, message: e.message });
+    }
+});
+
+// --- Crossword Endpoints ---
+
+// Helper to check if admin
+const checkAdmin = (req, res, next) => {
+    if (req.session.user && req.session.user.role === 'admin') {
+        next();
+    } else {
+        res.status(403).json({ success: false, message: 'Unauthorized. Admin access required.' });
+    }
+};
+
+// GET /api/crosswords/directories - Get all directories
+app.get('/api/crosswords/directories', async (req, res) => {
+    try {
+        const dirs = await Directory.find().sort({ name: 1 });
+        res.json({ success: true, data: dirs });
+    } catch (e) {
+        res.status(500).json({ success: false, message: e.message });
+    }
+});
+
+// POST /api/crosswords/directories - Create a new directory
+app.post('/api/crosswords/directories', checkAdmin, async (req, res) => {
+    try {
+        const { name } = req.body;
+        if (!name) {
+            return res.status(400).json({ success: false, message: 'Directory name is required' });
+        }
+        const cleanedName = name.trim();
+        const exists = await Directory.findOne({ name: cleanedName });
+        if (exists) {
+            return res.status(400).json({ success: false, message: 'Directory already exists' });
+        }
+        const newDir = await Directory.create({ name: cleanedName });
+        res.status(201).json({ success: true, data: newDir, message: 'Directory created successfully!' });
+    } catch (e) {
+        res.status(500).json({ success: false, message: e.message });
+    }
+});
+
+// DELETE /api/crosswords/directories/:name - Delete a directory and all associated words
+app.delete('/api/crosswords/directories/:name', checkAdmin, async (req, res) => {
+    try {
+        const { name } = req.params;
+        const dir = await Directory.findOne({ name });
+        if (!dir) {
+            return res.status(404).json({ success: false, message: 'Directory not found' });
+        }
+        await Directory.deleteOne({ name });
+        await CrosswordWord.deleteMany({ directory: name });
+        res.json({ success: true, message: `Directory '${name}' and all its words deleted successfully!` });
+    } catch (e) {
+        res.status(500).json({ success: false, message: e.message });
+    }
+});
+
+// GET /api/crosswords/words - Get words in a directory
+app.get('/api/crosswords/words', async (req, res) => {
+    try {
+        const { directory } = req.query;
+        if (!directory) {
+            return res.status(400).json({ success: false, message: 'Directory query param is required' });
+        }
+        const words = await CrosswordWord.find({ directory }).sort({ createdAt: 1 });
+        res.json({ success: true, data: words });
+    } catch (e) {
+        res.status(500).json({ success: false, message: e.message });
+    }
+});
+
+// POST /api/crosswords/upload - Batch upload parsed words for a directory (replaces existing words)
+app.post('/api/crosswords/upload', checkAdmin, async (req, res) => {
+    try {
+        const { directory, words } = req.body;
+        if (!directory || !words || !Array.isArray(words)) {
+            return res.status(400).json({ success: false, message: 'Directory name and words array are required' });
+        }
+        const cleanedDir = directory.trim();
+        
+        // Auto-create directory if it doesn't exist yet
+        let dir = await Directory.findOne({ name: cleanedDir });
+        if (!dir) {
+            dir = await Directory.create({ name: cleanedDir });
+        }
+
+        // Delete existing words for this directory
+        await CrosswordWord.deleteMany({ directory: cleanedDir });
+
+        // Format and insert new words
+        const wordsToInsert = words
+            .filter(w => w.word && w.word.trim().length > 0)
+            .map(w => ({
+                directory: cleanedDir,
+                word: w.word.trim().toUpperCase(),
+                clue: w.clue ? w.clue.trim() : 'No clue provided.'
+            }));
+
+        if (wordsToInsert.length === 0) {
+            return res.status(400).json({ success: false, message: 'No valid words found in the payload' });
+        }
+
+        const inserted = await CrosswordWord.insertMany(wordsToInsert);
+        res.json({ 
+            success: true, 
+            message: `Successfully uploaded ${inserted.length} words to '${cleanedDir}'!`,
+            count: inserted.length
+        });
     } catch (e) {
         res.status(500).json({ success: false, message: e.message });
     }
