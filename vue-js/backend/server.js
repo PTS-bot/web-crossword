@@ -457,6 +457,26 @@ app.post('/api/crosswords/upload', checkAdmin, async (req, res) => {
     }
 });
 
+// --- Admin Dashboard Endpoints ---
+app.get('/api/admin/users', checkAdmin, async (req, res) => {
+    try {
+        const users = await User.find({}, { password: 0 }).sort({ username: 1 });
+        res.json({ success: true, users });
+    } catch (e) {
+        res.status(500).json({ success: false, message: e.message });
+    }
+});
+
+app.get('/api/admin/scores', checkAdmin, async (req, res) => {
+    try {
+        // Return all rankings sorted chronologically by createdAt so we can show them round by round
+        const scores = await Ranking.find({}).sort({ createdAt: 1 });
+        res.json({ success: true, scores });
+    } catch (e) {
+        res.status(500).json({ success: false, message: e.message });
+    }
+});
+
 // --- Ranking Endpoints ---
 
 // GET /api/rankings - Get top 50 rankings, optionally filtered by labsKey

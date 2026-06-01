@@ -102,6 +102,14 @@ createApp({
                 rankingForm.playerName = guestName.value || '';
             }
         }, { immediate: true });
+
+        // Update chart average line dynamically when search query changes
+        Vue.watch(dashboardSearchQuery, () => {
+            if (dashboardSelectedUser.value) {
+                updateChart();
+            }
+        });
+
         const placedWords = ref([]); // List of placed words with clues and grid positions
         const gridCells = ref([]); // 2D array of cells
         const acrossClues = ref([]); // Across clues list
@@ -1835,6 +1843,18 @@ createApp({
         });
 
         return {
+            // Dashboard States & Methods
+            dashboardUsers,
+            dashboardScores,
+            dashboardLoading,
+            dashboardSearchQuery,
+            dashboardSelectedUser,
+            filteredUsers,
+            dashboardSelectedUserStats,
+            selectDashboardUser,
+            fetchAdminDashboardData,
+            updateChart,
+
             viewMode,
             activeTab,
             currentUser,
