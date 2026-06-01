@@ -35,7 +35,22 @@
 }
 
 body {
-    background-color: var(--bg-main);
+    background-color: #000000;
+    background-image: 
+        radial-gradient(2px 2px at 20px 30px, #eee, rgba(0,0,0,0)),
+        radial-gradient(2px 2px at 40px 70px, #fff, rgba(0,0,0,0)),
+        radial-gradient(2px 2px at 50px 160px, #ddd, rgba(0,0,0,0)),
+        radial-gradient(2px 2px at 80px 120px, #fff, rgba(0,0,0,0)),
+        radial-gradient(2px 2px at 110px 210px, #ddd, rgba(0,0,0,0)),
+        radial-gradient(2px 2px at 100px 80px, #fff, rgba(0,0,0,0)),
+        radial-gradient(2px 2px at 150px 180px, #ddd, rgba(0,0,0,0)),
+        radial-gradient(2px 2px at 200px 50px, #fff, rgba(0,0,0,0)),
+        radial-gradient(2px 2px at 250px 250px, #fff, rgba(0,0,0,0)),
+        radial-gradient(2px 2px at 300px 130px, #ddd, rgba(0,0,0,0)),
+        radial-gradient(3px 3px at 70px 280px, rgba(0, 210, 255, 0.4), rgba(0,0,0,0)),
+        radial-gradient(3px 3px at 180px 290px, rgba(124, 58, 237, 0.3), rgba(0,0,0,0));
+    background-repeat: repeat;
+    background-size: 320px 320px;
     color: var(--text-main);
     font-family: var(--font-family);
     height: 100vh;
@@ -1981,7 +1996,7 @@ body {
     margin: 0 auto;
     display: flex;
     flex-direction: column;
-    gap: 24px;
+    gap: 10px;
     padding: 10px 0;
 }
 
@@ -2567,7 +2582,7 @@ body {
     border: 1px solid rgba(0,210,255,0.15);
     border-radius: var(--radius-lg);
     padding: 12px 20px;
-    margin-bottom: -14px;
+    margin-bottom: 0;
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
 }
