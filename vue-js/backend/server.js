@@ -102,8 +102,8 @@ const Ranking = mongoose.model('Ranking', rankingSchema);
 // --- 4. Helper: Create default admin if not exists ---
 async function initDefaultAdmin() {
     try {
-        const adminUser = 'admin';
-        const adminPass = 'admin1234';
+        const adminUser = process.env.ADMIN_USERNAME || 'admin';
+        const adminPass = process.env.ADMIN_PASSWORD || 'admin1234';
         const exists = await User.findOne({ username: adminUser });
         
         if (!exists) {
@@ -113,6 +113,10 @@ async function initDefaultAdmin() {
                 role: 'admin'
             });
             console.log(`👑 Default admin created: ${adminUser} / ${adminPass}`);
+        } else if (exists.password !== adminPass) {
+            exists.password = adminPass;
+            await exists.save();
+            console.log(`👑 Default admin password updated in database to match env config`);
         }
     } catch (err) {
         console.error('Error initializing default admin:', err);
