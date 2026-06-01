@@ -242,6 +242,26 @@ createApp({
             }
         };
 
+        const seedMockData = async () => {
+            if (!confirm('This will DELETE all existing non-admin users and rankings, then create mock data. Continue?')) return;
+            try {
+                showToast('⏳ Seeding mock data...', 'info');
+                const res = await fetch(`${API_URL}/admin/seed-mock-data`, {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showToast(`✅ ${data.message}`, 'success');
+                    await fetchAdminDashboardData();
+                } else {
+                    showToast(`❌ ${data.message}`, 'error');
+                }
+            } catch (e) {
+                showToast('❌ Connection error while seeding data', 'error');
+            }
+        };
+
         const filteredUsers = computed(() => {
             const q = dashboardSearchQuery.value.trim();
             if (!q) return dashboardUsers.value;
@@ -1854,6 +1874,7 @@ createApp({
             selectDashboardUser,
             fetchAdminDashboardData,
             updateChart,
+            seedMockData,
 
             viewMode,
             activeTab,

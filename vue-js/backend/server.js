@@ -477,6 +477,79 @@ app.get('/api/admin/scores', checkAdmin, async (req, res) => {
     }
 });
 
+app.post('/api/admin/seed-mock-data', checkAdmin, async (req, res) => {
+    try {
+        // 1. Clean existing mock data (except admin so they don't get logged out!)
+        const adminUsername = process.env.ADMIN_USERNAME || 'admin';
+        await User.deleteMany({ username: { $ne: adminUsername } });
+        await Ranking.deleteMany({});
+
+        // 2. Mock users list
+        const mockUsers = [
+            { username: '6414001', password: 'password123', role: 'user', avatar: 'avatar1' },
+            { username: '6414002', password: 'password123', role: 'user', avatar: 'avatar2' },
+            { username: '6414003', password: 'password123', role: 'user', avatar: 'avatar3' },
+            { username: '6414004', password: 'password123', role: 'user', avatar: 'avatar4' },
+            { username: '6414005', password: 'password123', role: 'user', avatar: 'avatar5' },
+            { username: 'somchai_s', password: 'password123', role: 'user', avatar: 'avatar6' },
+            { username: 'somsri_k', password: 'password123', role: 'user', avatar: 'avatar1' },
+            { username: 'student_99', password: 'password123', role: 'user', avatar: 'avatar2' },
+            { username: 'crossword_pro', password: 'password123', role: 'user', avatar: 'avatar3' },
+            { username: 'kitty_learner', password: 'password123', role: 'user', avatar: 'avatar4' }
+        ];
+
+        // Insert users
+        await User.insertMany(mockUsers);
+
+        // 3. Generate mock scores (Rankings) for each user
+        // We want to generate chronological rounds (3 to 8 rounds per user)
+        // With speeds showing growth (starting slow and getting faster)
+        const mockScores = [];
+        const labs = ['network_lv1', 'vocab_easy'];
+        
+        for (const user of mockUsers) {
+            const rounds = 3 + Math.floor(Math.random() * 6); // 3 to 8 rounds
+            let baseSpeed = 0.05 + Math.random() * 0.08; // starting speed: 0.05 to 0.13 w/s
+            
+            for (let round = 1; round <= rounds; round++) {
+                // Growth rate: 10% to 25% increase each round with minor random variations
+                const growth = 1.1 + (Math.random() * 0.15);
+                baseSpeed = baseSpeed * growth;
+                
+                // Words count
+                const wordCount = 10;
+                // Calculate time based on speed: time = wordCount / speed
+                const time = Math.round(wordCount / baseSpeed);
+                const score = Number((wordCount / time).toFixed(4));
+                
+                // Create a chronological date for each round (e.g. 1 day apart)
+                const createdAt = new Date();
+                createdAt.setDate(createdAt.getDate() - (rounds - round));
+
+                mockScores.push({
+                    playerName: user.username,
+                    playerAvatar: user.avatar,
+                    labs,
+                    labsKey: labs.slice().sort().join('+'),
+                    wordCount,
+                    time,
+                    score,
+                    createdAt
+                });
+            }
+        }
+
+        await Ranking.insertMany(mockScores);
+
+        res.json({ 
+            success: true, 
+            message: `Successfully seeded ${mockUsers.length} mock users and ${mockScores.length} rounds of performance scores!` 
+        });
+    } catch (e) {
+        res.status(500).json({ success: false, message: e.message });
+    }
+});
+
 // --- Ranking Endpoints ---
 
 // GET /api/rankings - Get top 50 rankings, optionally filtered by labsKey
