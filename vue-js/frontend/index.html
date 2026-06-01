@@ -27,37 +27,153 @@
         <div class="player-layout" v-if="viewMode === 'player'">
             <!-- Game Setup Screen -->
             <div class="game-setup-container" v-if="gameState === 'setup'">
-                <div class="setup-card animate-slide-down">
-                    <div class="setup-icon"><i class="fas fa-gamepad"></i></div>
-                    <h2>เริ่มต้นเล่นเกม Crossword</h2>
-                    <p class="setup-desc">กรุณาเลือกหมวดหมู่โจทย์ (Lab) และกำหนดจำนวนคำศัพท์ที่ต้องการเล่นด้านล่าง</p>
+                <div class="setup-wrapper animate-slide-down">
                     
-                    <form @submit.prevent="startGame">
-                        <div class="form-group">
-                            <label for="labSelect">เลือกหมวดหมู่โจทย์ (Lab)</label>
-                            <select id="labSelect" v-model="playConfig.directory" required class="form-control-select">
-                                <option value="" disabled>-- กรุณาเลือกหมวดหมู่ --</option>
-                                <option v-for="dir in crosswordDirs" :key="dir.name" :value="dir.name">
-                                    {{ dir.name }}
-                                </option>
-                            </select>
-                            <p class="form-hint" v-if="crosswordDirs.length === 0">
-                                <i class="fas fa-exclamation-triangle"></i> ยังไม่มีหมวดหมู่โจทย์ในระบบ กรุณาเข้าหน้าผู้ดูแลระบบเพื่อสร้างหมวดหมู่และอัปโหลดไฟล์ CSV
-                            </p>
+                    <!-- TOP CONTROL BAR -->
+                    <div class="setup-top-bar">
+                        <div class="top-bar-left">
+                            <div class="setup-icon-small"><i class="fas fa-gamepad"></i></div>
+                            <div class="setup-title-group">
+                                <h2>เริ่มต้นเล่นเกม Crossword</h2>
+                                <p class="setup-desc">เลือกหมวดหมู่โจทย์ (Lab) ด้านล่าง และกำหนดจำนวนคำศัพท์เพื่อเริ่มต้นความท้าทาย</p>
+                            </div>
                         </div>
                         
-                        <div class="form-group" v-if="playConfig.directory">
-                            <label for="wordCountInput">จำนวนคำศัพท์ที่ต้องการสุ่ม: {{ playConfig.wordCount }} คำ</label>
-                            <div class="range-wrap">
-                                <input type="range" id="wordCountInput" v-model.number="playConfig.wordCount" min="3" :max="Math.max(3, maxAvailableWords)" step="1">
-                                <span class="range-val">{{ playConfig.wordCount }} / {{ maxAvailableWords }} คำ</span>
+                        <form @submit.prevent="startGame" class="setup-top-form">
+                            <div class="top-form-controls">
+                                <!-- Word Count Input -->
+                                <div class="form-group-top" v-if="selectedPlayDirs.length > 0">
+                                    <label for="wordCountInput">จำนวนคำศัพท์สุ่ม: <span class="highlight">{{ playConfig.wordCount }} / {{ maxAvailableWords }} คำ</span></label>
+                                    <div class="range-wrap-top">
+                                        <input type="range" id="wordCountInput" v-model.number="playConfig.wordCount" min="3" :max="Math.max(3, maxAvailableWords)" step="1">
+                                    </div>
+                                </div>
+                                <div class="form-group-top flex-1" v-else>
+                                    <span class="select-hint-text"><i class="fas fa-arrow-left"></i> กรุณาเลือกหมวดหมู่โจทย์ที่ต้องการเล่นด้านล่าง</span>
+                                </div>
+                                
+                                <!-- Start Button -->
+                                <button type="submit" class="btn btn-primary btn-start-game" :disabled="selectedPlayDirs.length === 0">
+                                    <i class="fas fa-play"></i> เริ่มเล่นเกม
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- TWO COLUMNS GRID -->
+                    <div class="setup-grid">
+                        
+                        <!-- Left Column: Labs Selection List -->
+                        <div class="setup-column-card left-col">
+                            <div class="col-header">
+                                <h3><i class="fas fa-tags"></i> เลือกหมวดหมู่โจทย์ (Lab)</h3>
+                                <span class="selected-badge" v-if="selectedPlayDirs.length > 0">
+                                    เลือกแล้ว {{ selectedPlayDirs.length }} หมวดหมู่
+                                </span>
+                            </div>
+                            
+                            <div class="labs-list-grid">
+                                <div v-for="dir in crosswordDirs" 
+                                     :key="dir.name"
+                                     class="lab-item-box"
+                                     :class="{ 'lab-selected': selectedPlayDirs.includes(dir.name) }"
+                                     @click="toggleSelectPlayDir(dir.name)">
+                                    <div class="lab-checkbox">
+                                        <i class="fas" :class="selectedPlayDirs.includes(dir.name) ? 'fa-check-square' : 'fa-square'"></i>
+                                    </div>
+                                    <div class="lab-details">
+                                        <span class="lab-name">{{ dir.name }}</span>
+                                    </div>
+                                </div>
+                                <div v-if="crosswordDirs.length === 0 && !dirsLoading" class="empty-state">
+                                    <i class="fas fa-exclamation-triangle"></i>
+                                    <p>ยังไม่มีหมวดหมู่โจทย์ในระบบ</p>
+                                </div>
+                                <div v-if="dirsLoading" class="empty-state">
+                                    <i class="fas fa-spinner fa-spin"></i>
+                                    <p>กำลังโหลดหมวดหมู่...</p>
+                                </div>
                             </div>
                         </div>
 
-                        <button type="submit" class="btn btn-primary btn-block btn-lg" :disabled="crosswordDirs.length === 0 || !playConfig.directory">
-                            <i class="fas fa-play"></i> เริ่มเล่นเกม
-                        </button>
-                    </form>
+                        <!-- Right Column: User Rankings -->
+                        <div class="setup-column-card right-col">
+                            <div class="col-header justify-between">
+                                <h3><i class="fas fa-trophy"></i> ตารางคะแนน (Rankings)</h3>
+                                
+                                <!-- Filters -->
+                                <div class="rank-filter-tabs">
+                                    <button class="rank-tab-btn" 
+                                            :class="{ active: rankingFilter === 'selected' }" 
+                                            @click="rankingFilter = 'selected'"
+                                            :disabled="selectedPlayDirs.length === 0"
+                                            type="button">
+                                        เฉพาะโจทย์ที่เลือก
+                                    </button>
+                                    <button class="rank-tab-btn" 
+                                            :class="{ active: rankingFilter === 'all' }" 
+                                            @click="rankingFilter = 'all'"
+                                            type="button">
+                                        รวมทุกโจทย์
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <!-- Rankings List -->
+                            <div class="ranking-panel">
+                                <div class="loader-placeholder-small" v-if="rankingLoading">
+                                    <i class="fas fa-spinner fa-spin"></i> กำลังโหลดตารางคะแนน...
+                                </div>
+                                
+                                <div v-else class="ranking-table-wrapper">
+                                    <!-- If filter is 'selected' but no selection -->
+                                    <div v-if="rankingFilter === 'selected' && selectedPlayDirs.length === 0" class="empty-state">
+                                        <i class="fas fa-hand-pointer"></i>
+                                        <p>กรุณาเลือกหมวดหมู่โจทย์ (Lab) ด้านซ้าย เพื่อดูอันดับของกลุ่มนี้</p>
+                                    </div>
+                                    
+                                    <!-- Empty list -->
+                                    <div v-else-if="rankingList.length === 0" class="empty-state">
+                                        <i class="far fa-star"></i>
+                                        <p>ยังไม่มีสถิติสำหรับโจทย์กลุ่มนี้ เริ่มเล่นเพื่อบันทึกคะแนนเป็นคนแรก!</p>
+                                    </div>
+                                    
+                                    <table v-else class="ranking-table">
+                                        <thead>
+                                            <tr>
+                                                <th class="col-rank">อันดับ</th>
+                                                <th class="col-player">ผู้เล่น</th>
+                                                <th class="col-labs" v-if="rankingFilter === 'all'">โจทย์</th>
+                                                <th class="col-words text-center">คำ</th>
+                                                <th class="col-time text-center">เวลา</th>
+                                                <th class="col-score text-right">ความเร็ว (คำ/วินาที)</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr v-for="(rank, idx) in rankingList" :key="rank._id" :class="'rank-row-' + (idx + 1)">
+                                                <td class="col-rank text-center">
+                                                    <span v-if="idx === 0" class="rank-badge rank-1"><i class="fas fa-medal"></i></span>
+                                                    <span v-else-if="idx === 1" class="rank-badge rank-2"><i class="fas fa-medal"></i></span>
+                                                    <span v-else-if="idx === 2" class="rank-badge rank-3"><i class="fas fa-medal"></i></span>
+                                                    <span v-else class="rank-number">{{ idx + 1 }}</span>
+                                                </td>
+                                                <td class="col-player font-bold">{{ rank.playerName }}</td>
+                                                <td class="col-labs" v-if="rankingFilter === 'all'" :title="rank.labsKey">
+                                                    <span class="labs-pill">{{ rank.labsKey }}</span>
+                                                </td>
+                                                <td class="col-words text-center">{{ rank.wordCount }}</td>
+                                                <td class="col-time text-center">{{ formatSeconds(rank.time) }}</td>
+                                                <td class="col-score text-right font-mono text-primary font-bold">
+                                                    {{ rank.score.toFixed(3) }} w/s
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
                 </div>
             </div>
 
@@ -73,7 +189,7 @@
                         </button>
                         <div class="ghb-sep"></div>
                         <div class="ghb-info">
-                            <span class="ghb-dir"><i class="fas fa-folder-open"></i> {{ playConfig.directory }}</span>
+                            <span class="ghb-dir" :title="selectedDirsDisplay"><i class="fas fa-folder-open"></i> {{ selectedDirsDisplay }}</span>
                             <span class="ghb-count">{{ placedWords.length }}/{{ requestedCount }} คำ</span>
                         </div>
                     </div>
@@ -234,11 +350,56 @@
             <div class="success-overlay" v-if="gameState === 'completed'">
                 <div class="success-card animate-slide-down">
                     <div class="success-icon"><i class="fas fa-trophy"></i></div>
-                    <h2>ยินดีด้วย! คุณเก่งมาก!</h2>
+                    <h2>ยินดีด้วย! คุณเล่นสำเร็จแล้ว!</h2>
                     <p>คุณตอบคำถามถูกต้องครบถ้วนทุกช่องตารางแล้ว</p>
-                    <div class="success-actions">
-                        <button class="btn btn-primary" @click="resetGameSetup">
-                            <i class="fas fa-redo"></i> เล่นใหม่อีกครั้ง
+                    
+                    <!-- Stats summary -->
+                    <div class="score-summary-box">
+                        <div class="summary-item">
+                            <span class="label">จำนวนคำศัพท์</span>
+                            <span class="val">{{ placedWords.length }} คำ</span>
+                        </div>
+                        <div class="summary-item">
+                            <span class="label">เวลาที่ใช้</span>
+                            <span class="val">{{ timerDisplay }}</span>
+                        </div>
+                        <div class="summary-item">
+                            <span class="label">ความเร็วในการเล่น</span>
+                            <span class="val text-primary font-bold">{{ (placedWords.length / Math.max(1, timerSeconds)).toFixed(3) }} คำ/วิ</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Score Submission Form -->
+                    <div class="rank-submit-form" v-if="!scoreSubmitted">
+                        <h3><i class="fas fa-user-edit"></i> บันทึกสถิติลงตารางคะแนน</h3>
+                        <form @submit.prevent="submitScore">
+                            <div class="form-group" style="text-align: left;">
+                                <label for="playerNameInput">ชื่อผู้เล่น</label>
+                                <input type="text" 
+                                       id="playerNameInput" 
+                                       v-model="rankingForm.playerName" 
+                                       required 
+                                       placeholder="กรอกชื่อของคุณ..." 
+                                       maxlength="20"
+                                       :disabled="currentUser !== null"
+                                       class="form-control-input">
+                                <p class="form-hint" v-if="currentUser">
+                                    <i class="fas fa-user-check"></i> บันทึกคะแนนในชื่อบัญชี {{ currentUser.username }}
+                                </p>
+                            </div>
+                            <button type="submit" class="btn btn-success btn-block" :disabled="submittingScore">
+                                <i class="fas fa-save"></i> {{ submittingScore ? 'กำลังบันทึก...' : 'บันทึกสถิติ' }}
+                            </button>
+                        </form>
+                    </div>
+                    <div class="submit-success-msg" v-else>
+                        <i class="fas fa-check-circle text-success" style="font-size: 2.5rem; margin-bottom: 12px; display: block;"></i>
+                        <p class="text-success font-bold" style="font-size: 1.1rem; margin-bottom: 20px;">บันทึกสถิติของคุณเข้าตารางคะแนนเรียบร้อยแล้ว!</p>
+                    </div>
+
+                    <div class="success-actions" style="margin-top: 15px;">
+                        <button class="btn btn-primary btn-block btn-lg" @click="backToSetupAfterPlay">
+                            <i class="fas fa-redo"></i> กลับหน้าแรกและดูคะแนน
                         </button>
                     </div>
                 </div>

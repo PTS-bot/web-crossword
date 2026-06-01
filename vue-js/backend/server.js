@@ -84,6 +84,19 @@ const crosswordWordSchema = new mongoose.Schema({
 const Directory = mongoose.model('Directory', directorySchema);
 const CrosswordWord = mongoose.model('CrosswordWord', crosswordWordSchema);
 
+// Ranking Schema (ระบบตารางคะแนน)
+const rankingSchema = new mongoose.Schema({
+    playerName: { type: String, required: true },
+    labs: [{ type: String }],
+    labsKey: { type: String, required: true }, // e.g. "animals+fruits" (alphabetically sorted and joined)
+    wordCount: { type: Number, required: true },
+    time: { type: Number, required: true }, // in seconds
+    score: { type: Number, required: true }, // wordCount / time (words per second)
+    createdAt: { type: Date, default: Date.now }
+});
+
+const Ranking = mongoose.model('Ranking', rankingSchema);
+
 // --- 4. Helper: Create default admin if not exists ---
 async function initDefaultAdmin() {
     try {
@@ -351,7 +364,9 @@ app.get('/api/crosswords/words', async (req, res) => {
         if (!directory) {
             return res.status(400).json({ success: false, message: 'Directory query param is required' });
         }
-        const words = await CrosswordWord.find({ directory }).sort({ createdAt: 1 });
+        // Support multiple directories separated by commas
+        const dirs = directory.split(',');
+        const words = await CrosswordWord.find({ directory: { $in: dirs } }).sort({ createdAt: 1 });
         res.json({ success: true, data: words });
     } catch (e) {
         res.status(500).json({ success: false, message: e.message });
@@ -395,6 +410,49 @@ app.post('/api/crosswords/upload', checkAdmin, async (req, res) => {
             message: `Successfully uploaded ${inserted.length} words to '${cleanedDir}'!`,
             count: inserted.length
         });
+    } catch (e) {
+        res.status(500).json({ success: false, message: e.message });
+    }
+});
+
+// --- Ranking Endpoints ---
+
+// GET /api/rankings - Get top 50 rankings, optionally filtered by labsKey
+app.get('/api/rankings', async (req, res) => {
+    try {
+        const { labsKey } = req.query;
+        let query = {};
+        if (labsKey && labsKey !== 'all') {
+            query.labsKey = labsKey;
+        }
+        const rankings = await Ranking.find(query).sort({ score: -1 }).limit(50);
+        res.json({ success: true, data: rankings });
+    } catch (e) {
+        res.status(500).json({ success: false, message: e.message });
+    }
+});
+
+// POST /api/rankings - Submit a new score
+app.post('/api/rankings', async (req, res) => {
+    try {
+        const { playerName, labs, wordCount, time } = req.body;
+        if (!playerName || !labs || !Array.isArray(labs) || labs.length === 0 || !wordCount || !time) {
+            return res.status(400).json({ success: false, message: 'playerName, labs, wordCount, time are required' });
+        }
+
+        const score = Number((wordCount / time).toFixed(4));
+        const labsKey = labs.slice().sort().join('+');
+
+        const newRanking = await Ranking.create({
+            playerName: playerName.trim().substring(0, 20),
+            labs,
+            labsKey,
+            wordCount,
+            time,
+            score
+        });
+
+        res.status(201).json({ success: true, data: newRanking, message: 'บันทึกคะแนนสำเร็จ!' });
     } catch (e) {
         res.status(500).json({ success: false, message: e.message });
     }

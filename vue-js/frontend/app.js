@@ -53,6 +53,26 @@ createApp({
         const maxAvailableWords = ref(10);
         const requestedCount = ref(10);
         const rawDirectoryWords = ref([]);
+
+        // New play and ranking states
+        const selectedPlayDirs = ref([]); // array of selected directory names
+        const rankingFilter = ref('all'); // 'selected' or 'all'
+        const rankingList = ref([]);
+        const rankingLoading = ref(false);
+        const scoreSubmitted = ref(false);
+        const submittingScore = ref(false);
+        const rankingForm = reactive({
+            playerName: ''
+        });
+
+        // Prefill ranking name if user is logged in
+        Vue.watch(currentUser, (newVal) => {
+            if (newVal) {
+                rankingForm.playerName = newVal.username;
+            } else {
+                rankingForm.playerName = '';
+            }
+        }, { immediate: true });
         const placedWords = ref([]); // List of placed words with clues and grid positions
         const gridCells = ref([]); // 2D array of cells
         const acrossClues = ref([]); // Across clues list
@@ -384,10 +404,10 @@ createApp({
                 if (data.success) {
                     crosswordDirs.value = data.data;
                     
-                    // Sync play dropdown selection
-                    if (crosswordDirs.value.length > 0 && !playConfig.directory) {
-                        playConfig.directory = crosswordDirs.value[0].name;
-                        onPlayDirChange();
+                    // Sync play directory selection
+                    if (crosswordDirs.value.length > 0 && selectedPlayDirs.value.length === 0) {
+                        selectedPlayDirs.value = [crosswordDirs.value[0].name];
+                        onSelectedDirsChange();
                     }
                 }
             } catch (e) {
@@ -398,15 +418,27 @@ createApp({
         };
 
         // Track how many words exist in selected category to prevent selecting more than available
-        const onPlayDirChange = async () => {
-            if (!playConfig.directory) return;
+        const onSelectedDirsChange = async () => {
+            if (selectedPlayDirs.value.length === 0) {
+                maxAvailableWords.value = 0;
+                playConfig.wordCount = 0;
+                return;
+            }
             try {
-                const response = await fetch(`${API_URL}/crosswords/words?directory=${playConfig.directory}`);
+                const dirsParam = selectedPlayDirs.value.join(',');
+                const response = await fetch(`${API_URL}/crosswords/words?directory=${encodeURIComponent(dirsParam)}`);
                 const data = await response.json();
                 if (data.success) {
                     maxAvailableWords.value = data.data.length;
-                    if (playConfig.wordCount > maxAvailableWords.value) {
-                        playConfig.wordCount = Math.max(3, maxAvailableWords.value);
+                    
+                    if (playConfig.wordCount > maxAvailableWords.value || playConfig.wordCount <= 0) {
+                        playConfig.wordCount = Math.min(10, maxAvailableWords.value);
+                    }
+                    
+                    if (maxAvailableWords.value >= 3 && playConfig.wordCount < 3) {
+                        playConfig.wordCount = 3;
+                    } else if (maxAvailableWords.value < 3) {
+                        playConfig.wordCount = maxAvailableWords.value;
                     }
                 }
             } catch (e) {
@@ -414,10 +446,28 @@ createApp({
             }
         };
 
-        // Watch playConfig.directory
-        Vue.watch(() => playConfig.directory, () => {
-            onPlayDirChange();
+        const toggleSelectPlayDir = (dirName) => {
+            const idx = selectedPlayDirs.value.indexOf(dirName);
+            if (idx > -1) {
+                selectedPlayDirs.value.splice(idx, 1);
+            } else {
+                selectedPlayDirs.value.push(dirName);
+            }
+            onSelectedDirsChange();
+        };
+
+        // Watch for selected directories or filter tabs to refresh rankings
+        Vue.watch(rankingFilter, () => {
+            fetchRankings();
         });
+
+        Vue.watch(selectedPlayDirs, (newVal) => {
+            if (newVal.length > 0) {
+                fetchRankings();
+            } else {
+                rankingList.value = [];
+            }
+        }, { deep: true });
 
         const createDirectory = async () => {
             if (!newDirName.value.trim()) return;
@@ -596,9 +646,10 @@ createApp({
         // --- 🎮 Crossword Game Generator & Interface logic ---
 
         const startGame = async () => {
-            if (!playConfig.directory) return;
+            if (selectedPlayDirs.value.length === 0) return;
             try {
-                const response = await fetch(`${API_URL}/crosswords/words?directory=${playConfig.directory}`);
+                const dirsParam = selectedPlayDirs.value.join(',');
+                const response = await fetch(`${API_URL}/crosswords/words?directory=${encodeURIComponent(dirsParam)}`);
                 const data = await response.json();
                 if (!data.success || data.data.length === 0) {
                     showToast('❌ ไม่สามารถเริ่มเกมได้ เนื่องจากไม่พบคำศัพท์ในหมวดหมู่นี้', 'error');
@@ -1247,6 +1298,81 @@ createApp({
             }
         };
 
+        // --- Rankings Operations ---
+        const formatSeconds = (sec) => {
+            const m = Math.floor(sec / 60);
+            const s = sec % 60;
+            return `${m}:${String(s).padStart(2, '0')}`;
+        };
+
+        const selectedDirsDisplay = computed(() => {
+            if (selectedPlayDirs.value.length === 0) return 'ยังไม่ได้เลือกโจทย์';
+            return selectedPlayDirs.value.join(' + ');
+        });
+
+        const fetchRankings = async () => {
+            rankingLoading.value = true;
+            try {
+                let url = `${API_URL}/rankings`;
+                if (rankingFilter.value === 'selected' && selectedPlayDirs.value.length > 0) {
+                    const labsKey = selectedPlayDirs.value.slice().sort().join('+');
+                    url += `?labsKey=${encodeURIComponent(labsKey)}`;
+                }
+                const response = await fetch(url);
+                const data = await response.json();
+                if (data.success) {
+                    rankingList.value = data.data;
+                }
+            } catch (e) {
+                console.error('Failed to fetch rankings:', e);
+            } finally {
+                rankingLoading.value = false;
+            }
+        };
+
+        const submitScore = async () => {
+            const name = rankingForm.playerName.trim();
+            if (!name) {
+                showToast('⚠️ กรุณากรอกชื่อผู้เล่นก่อนบันทึก', 'warning');
+                return;
+            }
+            if (selectedPlayDirs.value.length === 0) return;
+
+            submittingScore.value = true;
+            try {
+                const payload = {
+                    playerName: name,
+                    labs: selectedPlayDirs.value,
+                    wordCount: placedWords.value.length,
+                    time: timerSeconds.value
+                };
+
+                const response = await fetch(`${API_URL}/rankings`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    showToast('🏆 บันทึกคะแนนของคุณสำเร็จ!', 'success');
+                    scoreSubmitted.value = true;
+                } else {
+                    showToast(`❌ บันทึกคะแนนล้มเหลว: ${data.message}`, 'error');
+                }
+            } catch (e) {
+                showToast('❌ เกิดข้อผิดพลาดในการเชื่อมต่อเพื่อบันทึกคะแนน', 'error');
+            } finally {
+                submittingScore.value = false;
+            }
+        };
+
+        const backToSetupAfterPlay = () => {
+            resetGameSetup();
+            scoreSubmitted.value = false;
+            fetchRankings();
+        };
+
         onMounted(() => {
             checkHealth();
             setInterval(checkHealth, 10000);
@@ -1256,6 +1382,9 @@ createApp({
             // Route based on URL hash (e.g. /#admin)
             applyHashRoute();
             window.addEventListener('hashchange', applyHashRoute);
+            
+            // Fetch initial rankings
+            fetchRankings();
         });
 
         return {
@@ -1347,7 +1476,21 @@ createApp({
             handleZoom,
             zoomIn,
             zoomOut,
-            zoomReset
+            zoomReset,
+
+            // New Play & Rankings states/actions
+            selectedPlayDirs,
+            rankingFilter,
+            rankingList,
+            rankingLoading,
+            scoreSubmitted,
+            submittingScore,
+            rankingForm,
+            toggleSelectPlayDir,
+            formatSeconds,
+            selectedDirsDisplay,
+            submitScore,
+            backToSetupAfterPlay
         };
     }
 }).mount('#app');
