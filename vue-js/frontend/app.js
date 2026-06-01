@@ -75,7 +75,7 @@ createApp({
         const guestName = ref(localStorage.getItem('guestName') || '');
         const guestAvatar = ref(localStorage.getItem('guestAvatar') || 'avatar1');
 
-        const avatarOptions = ['avatar1','avatar2','avatar3','avatar4','avatar5','avatar6'];
+        const avatarOptions = ['avatar1', 'avatar2', 'avatar3', 'avatar4', 'avatar5', 'avatar6'];
 
         const profileForm = reactive({
             guestName: guestName.value,
@@ -98,7 +98,7 @@ createApp({
         const gridCells = ref([]); // 2D array of cells
         const acrossClues = ref([]); // Across clues list
         const downClues = ref([]); // Down clues list
-        
+
         // Active cell selection
         const activeRow = ref(-1);
         const activeCol = ref(-1);
@@ -222,16 +222,16 @@ createApp({
 
         // ── Avatar SVG generator ──────────────────────────────
         const AVATAR_COLORS = [
-            ['#7c3aed','#ede9fe'], ['#db2777','#fce7f3'], ['#0891b2','#cffafe'],
-            ['#d97706','#fef3c7'], ['#059669','#d1fae5'], ['#dc2626','#fee2e2']
+            ['#7c3aed', '#ede9fe'], ['#db2777', '#fce7f3'], ['#0891b2', '#cffafe'],
+            ['#d97706', '#fef3c7'], ['#059669', '#d1fae5'], ['#dc2626', '#fee2e2']
         ];
-        const AVATAR_SYMBOLS = ['😺','🦊','🐧','🦁','🐸','🦄'];
+        const AVATAR_SYMBOLS = ['😺', '🦊', '🐧', '🦁', '🐸', '🦄'];
 
         const getAvatarSvg = (av) => {
             if (av && av.startsWith('http')) {
                 return `<img src="${av}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" onerror="this.src=''"/>`;
             }
-            const idx = parseInt((av || 'avatar1').replace('avatar','')) - 1;
+            const idx = parseInt((av || 'avatar1').replace('avatar', '')) - 1;
             const safeIdx = Math.max(0, Math.min(5, isNaN(idx) ? 0 : idx));
             const [bg] = AVATAR_COLORS[safeIdx];
             const sym = AVATAR_SYMBOLS[safeIdx];
@@ -305,7 +305,7 @@ createApp({
                     } else {
                         showToast(`❌ ${data.message}`, 'error');
                     }
-                } catch(e) {
+                } catch (e) {
                     showToast('❌ Connection error', 'error');
                 }
             } else {
@@ -347,7 +347,7 @@ createApp({
                 } else {
                     showToast(`❌ ${data.message}`, 'error');
                 }
-            } catch(e) {
+            } catch (e) {
                 showToast('❌ Connection error', 'error');
             } finally {
                 changingPassword.value = false;
@@ -404,7 +404,7 @@ createApp({
         const logoutPlayer = async () => {
             try {
                 await fetch(`${API_URL}/auth/logout`, { method: 'POST' });
-            } catch(e) {}
+            } catch (e) { }
             currentUser.value = null;
             showToast('🚪 Logged out successfully', 'info');
         };
@@ -422,7 +422,7 @@ createApp({
                 const response = await fetch(`${API_URL}/health`);
                 if (!response.ok) throw new Error('API server returned error');
                 const data = await response.json();
-                
+
                 if (data.success) {
                     serviceStatus.backend = data.services.backend === 'running' ? 'ok' : 'error';
                     serviceStatus.database = data.services.database === 'connected' ? 'ok' : 'error';
@@ -619,7 +619,7 @@ createApp({
                 const data = await response.json();
                 if (data.success) {
                     crosswordDirs.value = data.data;
-                    
+
                     // Sync play directory selection
                     if (crosswordDirs.value.length > 0 && selectedPlayDirs.value.length === 0) {
                         selectedPlayDirs.value = [crosswordDirs.value[0].name];
@@ -646,11 +646,11 @@ createApp({
                 const data = await response.json();
                 if (data.success) {
                     maxAvailableWords.value = data.data.length;
-                    
+
                     if (playConfig.wordCount > maxAvailableWords.value || playConfig.wordCount <= 0) {
                         playConfig.wordCount = Math.min(10, maxAvailableWords.value);
                     }
-                    
+
                     if (maxAvailableWords.value >= 3 && playConfig.wordCount < 3) {
                         playConfig.wordCount = 3;
                     } else if (maxAvailableWords.value < 3) {
@@ -763,7 +763,7 @@ createApp({
                 return;
             }
             selectedFileName.value = file.name;
-            
+
             const reader = new FileReader();
             reader.onload = (e) => {
                 const text = e.target.result;
@@ -775,15 +775,15 @@ createApp({
         const parseCSVText = (text) => {
             const lines = text.split(/\r?\n/);
             const results = [];
-            
+
             for (const line of lines) {
                 if (!line.trim()) continue;
-                
+
                 // Quote-aware CSV cell splitting
                 let cells = [];
                 let current = '';
                 let inQuotes = false;
-                
+
                 for (let i = 0; i < line.length; i++) {
                     const char = line[i];
                     if (char === '"') {
@@ -796,10 +796,10 @@ createApp({
                     }
                 }
                 cells.push(current.trim());
-                
+
                 // Clean quotes from parsed cells
                 cells = cells.map(c => c.replace(/^"|"$/g, '').trim());
-                
+
                 if (cells.length >= 2 && cells[0]) {
                     // Keep original text for verification, but clean word for crossword grids
                     // We only strip spaces, dashes, commas and parentheses, leaving normal alphabet letters of any language.
@@ -812,7 +812,7 @@ createApp({
                     }
                 }
             }
-            
+
             parsedFileWords.value = results;
             if (results.length === 0) {
                 showToast('⚠️ No valid word data found in the CSV file', 'warning');
@@ -874,7 +874,7 @@ createApp({
 
                 rawDirectoryWords.value = data.data;
                 requestedCount.value = playConfig.wordCount;
-                
+
                 // Build crossword grid layout
                 const generated = generateCrossword(data.data, playConfig.wordCount);
                 if (!generated || generated.placed.length === 0) {
@@ -886,7 +886,7 @@ createApp({
                 gridCells.value = generated.gridCells;
                 acrossClues.value = generated.acrossClues;
                 downClues.value = generated.downClues;
-                
+
                 gameState.value = 'playing';
                 startTimer();
                 revealMode.value = false;
@@ -926,7 +926,7 @@ createApp({
                 // Shuffle list randomly
                 let shuffled = [...cleanList].sort(() => Math.random() - 0.5);
                 let selected = shuffled.slice(0, targetCount);
-                
+
                 // Sort by word length descending - longer words are best to place first
                 selected.sort((a, b) => b.word.length - a.word.length);
 
@@ -942,7 +942,7 @@ createApp({
                 for (let i = 0; i < firstWord.length; i++) {
                     grid[startY][startX + i] = firstWord[i];
                 }
-                
+
                 placed.push({
                     word: firstWord,
                     clue: selected[0].clue,
@@ -955,7 +955,7 @@ createApp({
                 for (let wIdx = 1; wIdx < selected.length; wIdx++) {
                     const currentItem = selected[wIdx];
                     const word = currentItem.word;
-                    
+
                     let bestPositionForWord = null;
                     let highestScoreForWord = -Infinity;
 
@@ -1006,7 +1006,7 @@ createApp({
                 // Sum up placement success metrics
                 if (placed.length > maxPlacedCount) {
                     maxPlacedCount = placed.length;
-                    
+
                     // Sum scores
                     let totalScore = placed.reduce((sum, p) => sum + (p.score || 0), 0);
                     maxScore = totalScore;
@@ -1384,14 +1384,14 @@ createApp({
             } else {
                 activeRow.value = r;
                 activeCol.value = c;
-                
+
                 // Set active direction based on matching words in cell
                 if (cell.words.length > 0) {
                     // Try to keep current direction if cell is part of a word in that direction
                     const wordIds = cell.words;
                     const matchingWords = placedWords.value.filter(p => wordIds.includes(p.id));
                     const hasCurrentDirection = matchingWords.some(p => p.direction === activeDirection.value);
-                    
+
                     if (!hasCurrentDirection && matchingWords.length > 0) {
                         activeDirection.value = matchingWords[0].direction;
                     }
@@ -1604,7 +1604,7 @@ createApp({
             // Route based on URL hash (e.g. /#admin)
             applyHashRoute();
             window.addEventListener('hashchange', applyHashRoute);
-            
+
             // Fetch initial rankings
             fetchRankings();
         });

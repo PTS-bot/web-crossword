@@ -18,7 +18,7 @@ app.use(session({
     secret: 'web-template-secret-key-98765',
     resave: false,
     saveUninitialized: false,
-    cookie: { 
+    cookie: {
         secure: false, // Set to true if using HTTPS
         maxAge: 24 * 60 * 60 * 1000 // 24 hours
     }
@@ -105,7 +105,7 @@ async function initDefaultAdmin() {
         const adminUser = process.env.ADMIN_USERNAME || 'admin';
         const adminPass = process.env.ADMIN_PASSWORD || 'admin1234';
         const exists = await User.findOne({ username: adminUser });
-        
+
         if (!exists) {
             await User.create({
                 username: adminUser,
@@ -150,7 +150,7 @@ app.get('/api/health', (req, res) => {
 app.post('/api/auth/register', async (req, res) => {
     try {
         const { username, password } = req.body;
-        
+
         if (!username || !password) {
             return res.status(400).json({ success: false, message: 'Username and password are required' });
         }
@@ -176,7 +176,7 @@ app.post('/api/auth/register', async (req, res) => {
 app.post('/api/auth/login', async (req, res) => {
     try {
         const { username, password } = req.body;
-        
+
         if (!username || !password) {
             return res.status(400).json({ success: false, message: 'Username and password are required' });
         }
@@ -219,7 +219,7 @@ app.get('/api/auth/profile', async (req, res) => {
         try {
             const user = await User.findOne({ username: req.session.user.username });
             if (user) req.session.user.avatar = user.avatar || 'avatar1';
-        } catch(e) {}
+        } catch (e) { }
         res.json({ success: true, authenticated: true, user: req.session.user });
     } else {
         res.json({ success: true, authenticated: false, user: null });
@@ -235,7 +235,7 @@ app.post('/api/auth/update-avatar', async (req, res) => {
         await User.updateOne({ username: req.session.user.username }, { avatar });
         req.session.user.avatar = avatar;
         res.json({ success: true, message: 'Avatar updated!' });
-    } catch(e) {
+    } catch (e) {
         res.status(500).json({ success: false, message: e.message });
     }
 });
@@ -251,7 +251,7 @@ app.post('/api/auth/change-password', async (req, res) => {
         if (!user) return res.status(401).json({ success: false, message: 'Current password is incorrect' });
         await User.updateOne({ username: req.session.user.username }, { password: newPassword });
         res.json({ success: true, message: 'Password changed successfully!' });
-    } catch(e) {
+    } catch (e) {
         res.status(500).json({ success: false, message: e.message });
     }
 });
@@ -271,7 +271,7 @@ app.get('/api/notes', async (req, res) => {
 app.post('/api/notes', async (req, res) => {
     try {
         const { title, content } = req.body;
-        
+
         if (!title || !content) {
             return res.status(400).json({ success: false, message: 'Title and content are required' });
         }
@@ -423,7 +423,7 @@ app.post('/api/crosswords/upload', checkAdmin, async (req, res) => {
             return res.status(400).json({ success: false, message: 'Directory name and words array are required' });
         }
         const cleanedDir = directory.trim();
-        
+
         // Auto-create directory if it doesn't exist yet
         let dir = await Directory.findOne({ name: cleanedDir });
         if (!dir) {
@@ -447,8 +447,8 @@ app.post('/api/crosswords/upload', checkAdmin, async (req, res) => {
         }
 
         const inserted = await CrosswordWord.insertMany(wordsToInsert);
-        res.json({ 
-            success: true, 
+        res.json({
+            success: true,
             message: `Successfully uploaded ${inserted.length} words to '${cleanedDir}'!`,
             count: inserted.length
         });
