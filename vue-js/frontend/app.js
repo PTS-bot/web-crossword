@@ -12,6 +12,14 @@ createApp({
         const notesLoading = ref(true);
         const showForm = ref(false);
 
+        // Admin Dashboard States
+        const dashboardUsers = ref([]);
+        const dashboardScores = ref([]);
+        const dashboardLoading = ref(false);
+        const dashboardSearchQuery = ref('');
+        const dashboardSelectedUser = ref(null);
+        let dashboardChartInstance = null;
+
         // Crossword Admin States
         const crosswordDirs = ref([]);
         const dirsLoading = ref(true);
