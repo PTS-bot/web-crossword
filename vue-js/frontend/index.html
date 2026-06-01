@@ -473,9 +473,9 @@
                 <button class="nav-btn" :class="{ active: activeTab === 'crosswords' }" @click="switchTab('crosswords')">
                     <i class="fas fa-puzzle-piece"></i> Crossword Manager
                 </button>
-                <button class="nav-btn" :class="{ active: activeTab === 'dashboard' }" @click="switchTab('dashboard')">
+                <a class="nav-btn" href="dashboard.html">
                     <i class="fas fa-chart-line"></i> Dashboard
-                </button>
+                </a>
                 <button class="nav-btn" :class="{ active: activeTab === 'notes' }" @click="switchTab('notes')">
                     <i class="fas fa-sticky-note"></i> Notes CRUD (DB Test)
                 </button>
@@ -592,121 +592,6 @@
                             <button class="btn btn-success btn-block" @click="submitUploadedWords" :disabled="!uploadTargetDir">
                                 <i class="fas fa-save"></i> Save {{ parsedFileWords.length }} words to "{{ uploadTargetDir }}"
                             </button>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <!-- Dashboard -->
-            <section class="tab-content" v-show="activeTab === 'dashboard'">
-                <div class="crud-header">
-                    <div class="title-area">
-                        <h2>📊 User Performance Dashboard</h2>
-                        <p>Analyze user growth, individual speeds, and group averages over time.</p>
-                    </div>
-                    <button class="btn btn-warning" @click="seedMockData" title="Generate 10 fake users with random game scores for testing">
-                        <i class="fas fa-database"></i> Seed Mock Data
-                    </button>
-                </div>
-
-                <div class="dashboard-layout-grid">
-                    <!-- Left: User List Panel -->
-                    <div class="dashboard-sidebar-card">
-                        <div class="sidebar-search-header">
-                            <h3><i class="fas fa-users"></i> Users List</h3>
-                            <div class="search-input-wrapper">
-                                <i class="fas fa-search search-icon"></i>
-                                <input type="text" 
-                                       v-model="dashboardSearchQuery" 
-                                       placeholder="Search (e.g. 6414*)..." 
-                                       class="dashboard-search-input">
-                            </div>
-                        </div>
-                        <div class="dashboard-users-scroll">
-                            <div class="loader-placeholder" v-if="dashboardLoading">
-                                <i class="fas fa-spinner fa-spin"></i> Loading...
-                            </div>
-                            <div class="empty-state-small" v-else-if="filteredUsers.length === 0">
-                                <i class="fas fa-user-slash"></i> No users found
-                            </div>
-                            <div v-for="user in filteredUsers" 
-                                 :key="user._id"
-                                 class="dashboard-user-item" 
-                                 :class="{ active: dashboardSelectedUser && dashboardSelectedUser.username === user.username }"
-                                 @click="selectDashboardUser(user)">
-                                <div class="user-item-avatar">
-                                    <span v-html="getAvatarDisplay(user.avatar || 'avatar1')"></span>
-                                </div>
-                                <div class="user-item-details">
-                                    <span class="user-item-name">{{ user.username }}</span>
-                                    <span class="user-item-meta">{{ user.role }} · Registered {{ formatRankDate(user.createdAt) }}</span>
-                                </div>
-                                <i class="fas fa-chevron-right user-item-arrow"></i>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Right: Statistics & Chart Panel -->
-                    <div class="dashboard-main-card">
-                        <div v-if="!dashboardSelectedUser" class="dashboard-empty-panel">
-                            <i class="fas fa-chart-area empty-icon animate-pulse"></i>
-                            <h3>Select a User</h3>
-                            <p>Choose a student or user from the list on the left to view their learning progress, round-by-round speeds, and growth comparison graphs.</p>
-                        </div>
-                        <div v-else class="dashboard-active-panel">
-                            <!-- User Header -->
-                            <div class="active-user-header">
-                                <div class="auh-left">
-                                    <div class="auh-avatar">
-                                        <span v-html="getAvatarDisplay(dashboardSelectedUser.avatar || 'avatar1')"></span>
-                                    </div>
-                                    <div class="auh-info">
-                                        <h3>{{ dashboardSelectedUser.username }}</h3>
-                                        <span class="auh-role-badge" :class="dashboardSelectedUser.role === 'admin' ? 'role-admin' : 'role-user'">
-                                            {{ dashboardSelectedUser.role === 'admin' ? 'Administrator' : 'Player' }}
-                                        </span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Quick Stats Grid -->
-                            <div class="dashboard-stats-grid">
-                                <div class="d-stat-card">
-                                    <div class="d-stat-icon stat-color-rounds"><i class="fas fa-history"></i></div>
-                                    <div class="d-stat-text">
-                                        <span class="label">Total Rounds</span>
-                                        <span class="val">{{ dashboardSelectedUserStats.rounds }}</span>
-                                    </div>
-                                </div>
-                                <div class="d-stat-card">
-                                    <div class="d-stat-icon stat-color-avg"><i class="fas fa-tachometer-alt"></i></div>
-                                    <div class="d-stat-text">
-                                        <span class="label">Average Speed</span>
-                                        <span class="val font-mono">{{ dashboardSelectedUserStats.avg.toFixed(3) }} <span class="unit">w/s</span></span>
-                                    </div>
-                                </div>
-                                <div class="d-stat-card">
-                                    <div class="d-stat-icon stat-color-max"><i class="fas fa-fire"></i></div>
-                                    <div class="d-stat-text">
-                                        <span class="label">Peak Speed</span>
-                                        <span class="val font-mono">{{ dashboardSelectedUserStats.max.toFixed(3) }} <span class="unit">w/s</span></span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Chart Area -->
-                            <div class="dashboard-chart-card">
-                                <div class="chart-card-header">
-                                    <h4><i class="fas fa-chart-line"></i> Performance Growth Over Rounds</h4>
-                                    <span class="chart-subtitle">Speed (words per second) - Higher is faster</span>
-                                </div>
-                                <div class="chart-canvas-container" style="position: relative; height: 350px; width: 100%;">
-                                    <canvas id="userChart"></canvas>
-                                </div>
-                                <div class="chart-legend-hint">
-                                    <p><i class="fas fa-info-circle"></i> The solid blue line displays the user's progress. The dashed purple line displays the group average of all users currently filtered in the search.</p>
-                                </div>
-                            </div>
                         </div>
                     </div>
                 </div>

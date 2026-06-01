@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Performance Dashboard — Admin Panel</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>[v-cloak]{display:none!important}</style>
+</head>
+<body>
+<div class="app-container" id="app" v-cloak>
+
+    <!-- ═══════════════════════════════════════════════════════
+         ADMIN WRAPPER
+         ═══════════════════════════════════════════════════════ -->
+    <div class="admin-wrapper">
+        <header class="admin-hbar">
+            <div class="admin-hbar-brand">
+                <i class="fas fa-layer-group"></i>
+                <span>Admin Panel</span>
+                <span class="admin-hbar-sub">Nginx + NodeJS + MongoDB + Vue.js</span>
+            </div>
+            <div class="admin-hbar-right">
+                <div v-if="!currentUser">
+                    <a class="btn btn-sm btn-outline" href="index.html#auth">
+                        <i class="fas fa-sign-in-alt"></i> Login
+                    </a>
+                </div>
+                <div v-else style="display:flex;align-items:center;gap:8px;">
+                    <span class="badge badge-success">
+                        <i class="fas fa-user-shield"></i> {{ currentUser.username }}
+                    </span>
+                    <button class="btn btn-sm btn-danger" @click="logout" title="Logout">
+                        <i class="fas fa-sign-out-alt"></i>
+                    </button>
+                </div>
+                <div class="ghb-sep" style="margin:0 6px;"></div>
+                <a class="btn btn-sm btn-outline" href="index.html">
+                    <i class="fas fa-gamepad"></i> Back to Game
+                </a>
+            </div>
+        </header>
+
+        <div class="main-layout">
+            <aside class="app-sidebar">
+                <nav class="sidebar-nav">
+                    <a class="nav-btn" href="index.html#admin">
+                        <i class="fas fa-puzzle-piece"></i> Crossword Manager
+                    </a>
+                    <a class="nav-btn active" href="dashboard.html">
+                        <i class="fas fa-chart-line"></i> Dashboard
+                    </a>
+                    <a class="nav-btn" href="index.html#notes">
+                        <i class="fas fa-sticky-note"></i> Notes CRUD (DB Test)
+                    </a>
+                    <a class="nav-btn" href="index.html#auth">
+                        <i class="fas fa-user-lock"></i> Auth Settings
+                    </a>
+                </nav>
+                <div class="health-widget">
+                    <h3>Service Status</h3>
+                    <div class="status-list">
+                        <div class="status-item">
+                            <span class="label">Nginx (Web Proxy)</span>
+                            <span class="status-dot" :class="statusClass(serviceStatus.nginx)"></span>
+                        </div>
+                        <div class="status-item">
+                            <span class="label">NodeJS (Backend)</span>
+                            <span class="status-dot" :class="statusClass(serviceStatus.backend)"></span>
+                        </div>
+                        <div class="status-item">
+                            <span class="label">MongoDB (Database)</span>
+                            <span class="status-dot" :class="statusClass(serviceStatus.database)"></span>
+                        </div>
+                    </div>
+                    <button class="btn btn-block btn-sm" @click="checkHealth"><i class="fas fa-sync-alt"></i> Refresh Status</button>
+                </div>
+            </aside>
+
+            <main class="app-content">
+                <!-- Check Admin authentication -->
+                <div class="admin-auth-warning" v-if="!currentUser || currentUser.role !== 'admin'">
+                    <div class="warning-box">
+                        <i class="fas fa-lock"></i>
+                        <h3>Admin Login Required</h3>
+                        <p>Please sign in with an admin account to view the dashboard.</p>
+                        <a class="btn btn-primary" href="index.html#auth">
+                            <i class="fas fa-sign-in-alt"></i> Go to Login
+                        </a>
+                    </div>
+                </div>
+
+                <section class="tab-content" v-else>
+                    <!-- Dashboard Header -->
+                    <div class="crud-header">
+                        <div class="title-area">
+                            <h2>📊 User Performance Dashboard</h2>
+                            <p>Analyze user growth, individual speeds, and group averages over time.</p>
+                        </div>
+                        <div style="display: flex; gap: 10px;">
+                            <button class="btn btn-success" @click="exportFilteredUsersCSV" :disabled="filteredUsers.length === 0" title="Export filtered users performance to CSV">
+                                <i class="fas fa-file-export"></i> Export CSV
+                            </button>
+                            <button class="btn btn-warning" @click="seedMockData" title="Generate 10 fake users with random game scores for testing">
+                                <i class="fas fa-database"></i> Seed Mock Data
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Dashboard Layout -->
+                    <div class="dashboard-layout-grid">
+                        <!-- Left Panel: Users List -->
+                        <div class="dashboard-sidebar-card">
+                            <div class="sidebar-search-header">
+                                <h3><i class="fas fa-users"></i> Users List</h3>
+                                <div class="search-input-wrapper">
+                                    <i class="fas fa-search search-icon"></i>
+                                    <input type="text" 
+                                           v-model="dashboardSearchQuery" 
+                                           placeholder="Search (e.g. 6414*)..." 
+                                           class="dashboard-search-input">
+                                </div>
+                            </div>
+
+                            <div class="dashboard-users-scroll">
+                                <div class="loader-placeholder" v-if="dashboardLoading">
+                                    <i class="fas fa-spinner fa-spin"></i> Loading...
+                                </div>
+                                <div class="empty-state-small" v-else-if="filteredUsers.length === 0">
+                                    <i class="fas fa-user-slash"></i> No users found
+                                </div>
+                                <div v-for="user in filteredUsers" 
+                                     :key="user._id"
+                                     class="dashboard-user-item" 
+                                     :class="{ active: dashboardSelectedUser && dashboardSelectedUser.username === user.username }"
+                                     @click="selectDashboardUser(user)">
+                                    <div class="user-item-avatar">
+                                        <span v-html="getAvatarDisplay(user.avatar || 'avatar1')"></span>
+                                    </div>
+                                    <div class="user-item-details">
+                                        <span class="user-item-name">{{ user.username }}</span>
+                                        <span class="user-item-meta">{{ user.role }} · Registered {{ formatRankDate(user.createdAt) }}</span>
+                                    </div>
+                                    <i class="fas fa-chevron-right user-item-arrow"></i>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Right Panel: Statistics & Graph -->
+                        <div class="dashboard-main-card">
+                            <!-- Empty State: No user selected -->
+                            <div v-if="!dashboardSelectedUser" class="dashboard-empty-panel">
+                                <i class="fas fa-chart-area empty-icon animate-pulse"></i>
+                                <h3>Select a User</h3>
+                                <p>Choose a student or user from the list on the left to view their learning progress, round-by-round speeds, and growth comparison graphs.</p>
+                            </div>
+
+                            <!-- Selected User Panel -->
+                            <div v-else class="dashboard-active-panel">
+                                <!-- User Header with Metric Selector -->
+                                <div class="active-user-header">
+                                    <div class="auh-left">
+                                        <div class="auh-avatar">
+                                            <span v-html="getAvatarDisplay(dashboardSelectedUser.avatar || 'avatar1')"></span>
+                                        </div>
+                                        <div class="auh-info">
+                                            <h3>{{ dashboardSelectedUser.username }}</h3>
+                                            <span class="auh-role-badge" :class="dashboardSelectedUser.role === 'admin' ? 'role-admin' : 'role-user'">
+                                                {{ dashboardSelectedUser.role === 'admin' ? 'Administrator' : 'Player' }}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div class="metric-selector" style="display:flex; flex-direction:column; align-items:flex-end; gap:6px;">
+                                        <span style="font-size:0.75rem; color:var(--text-muted); font-weight:700; text-transform:uppercase; letter-spacing:0.5px;">Select Y-Axis Metric</span>
+                                        <div class="btn-group" style="display:flex; gap:6px;">
+                                            <button v-for="m in metrics" 
+                                                    :key="m.key"
+                                                    class="btn btn-xs"
+                                                    :class="dashboardMetric === m.key ? 'btn-primary' : 'btn-outline'"
+                                                    @click="changeMetric(m.key)"
+                                                    style="padding:6px 10px; font-size:0.75rem; border-radius:4px;">
+                                                <i class="fas" :class="m.icon" style="margin-right:4px;"></i> {{ m.label }}
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Quick Stats Grid -->
+                                <div class="dashboard-stats-grid">
+                                    <div class="d-stat-card">
+                                        <div class="d-stat-icon stat-color-rounds"><i class="fas fa-history"></i></div>
+                                        <div class="d-stat-text">
+                                            <span class="label">Total Rounds</span>
+                                            <span class="val">{{ dashboardSelectedUserStats.rounds }}</span>
+                                        </div>
+                                    </div>
+                                    <div class="d-stat-card">
+                                        <div class="d-stat-icon stat-color-avg"><i class="fas" :class="activeMetricInfo.icon"></i></div>
+                                        <div class="d-stat-text">
+                                            <span class="label">Average {{ activeMetricInfo.label }}</span>
+                                            <span class="val font-mono">
+                                                {{ formatMetricValue(dashboardSelectedUserStats.avg) }}
+                                                <span class="unit" style="margin-left:2px;">{{ activeMetricInfo.unit }}</span>
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div class="d-stat-card">
+                                        <div class="d-stat-icon stat-color-max"><i class="fas fa-fire"></i></div>
+                                        <div class="d-stat-text">
+                                            <span class="label">Peak {{ activeMetricInfo.label }}</span>
+                                            <span class="val font-mono">
+                                                {{ formatMetricValue(dashboardSelectedUserStats.max) }}
+                                                <span class="unit" style="margin-left:2px;">{{ activeMetricInfo.unit }}</span>
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Chart Area -->
+                                <div class="dashboard-chart-card">
+                                    <div class="chart-card-header">
+                                        <h4><i class="fas fa-chart-line"></i> Performance Growth Over Rounds</h4>
+                                        <span class="chart-subtitle">Metric: {{ activeMetricInfo.label }} ({{ activeMetricInfo.unit }}) — Higher values represent better efficiency (except for time taken)</span>
+                                    </div>
+                                    <div class="chart-canvas-container" style="position: relative; height: 350px; width: 100%;">
+                                        <canvas id="userChart"></canvas>
+                                    </div>
+                                    <div class="chart-legend-hint">
+                                        <p>
+                                            <i class="fas fa-info-circle"></i> 
+                                            The solid blue line displays the user's progress for <strong>{{ activeMetricInfo.label }}</strong>. 
+                                            The dashed purple line displays the group average of all users currently filtered in the search.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </main>
+        </div>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div class="toast" v-if="toast.show" :style="{ borderLeftColor: toastBorderColor }">
+        <i class="fas" :class="toast.type === 'success' ? 'fa-check-circle text-success' : 'fa-info-circle'"></i>
+        <span>{{ toast.message }}</span>
+    </div>
+</div>
+
+<script src="dashboard.js"></script>
+</body>
+</html>

@@ -12,14 +12,6 @@ createApp({
         const notesLoading = ref(true);
         const showForm = ref(false);
 
-        // Admin Dashboard States
-        const dashboardUsers = ref([]);
-        const dashboardScores = ref([]);
-        const dashboardLoading = ref(false);
-        const dashboardSearchQuery = ref('');
-        const dashboardSelectedUser = ref(null);
-        let dashboardChartInstance = null;
-
         // Crossword Admin States
         const crosswordDirs = ref([]);
         const dirsLoading = ref(true);
@@ -103,12 +95,7 @@ createApp({
             }
         }, { immediate: true });
 
-        // Update chart average line dynamically when search query changes
-        Vue.watch(dashboardSearchQuery, () => {
-            if (dashboardSelectedUser.value) {
-                updateChart();
-            }
-        });
+
 
         const placedWords = ref([]); // List of placed words with clues and grid positions
         const gridCells = ref([]); // 2D array of cells
@@ -213,232 +200,6 @@ createApp({
                 fetchNotes();
                 hideNoteForm();
             }
-            if (tabId === 'dashboard') {
-                fetchAdminDashboardData();
-            }
-        };
-
-        // --- Admin Dashboard Functions ---
-        const fetchAdminDashboardData = async () => {
-            dashboardLoading.value = true;
-            dashboardSelectedUser.value = null;
-            if (dashboardChartInstance) {
-                dashboardChartInstance.destroy();
-                dashboardChartInstance = null;
-            }
-            try {
-                const [usersRes, scoresRes] = await Promise.all([
-                    fetch(`${API_URL}/admin/users`, { credentials: 'include' }),
-                    fetch(`${API_URL}/admin/scores`, { credentials: 'include' })
-                ]);
-                const usersData = await usersRes.json();
-                const scoresData = await scoresRes.json();
-                if (usersData.success) dashboardUsers.value = usersData.users;
-                if (scoresData.success) dashboardScores.value = scoresData.scores;
-            } catch (e) {
-                showToast('❌ Failed to load dashboard data', 'error');
-            } finally {
-                dashboardLoading.value = false;
-            }
-        };
-
-        const seedMockData = async () => {
-            if (!confirm('This will DELETE all existing non-admin users and rankings, then create mock data. Continue?')) return;
-            try {
-                showToast('⏳ Seeding mock data...', 'info');
-                const res = await fetch(`${API_URL}/admin/seed-mock-data`, {
-                    method: 'POST',
-                    credentials: 'include'
-                });
-                const data = await res.json();
-                if (data.success) {
-                    showToast(`✅ ${data.message}`, 'success');
-                    await fetchAdminDashboardData();
-                } else {
-                    showToast(`❌ ${data.message}`, 'error');
-                }
-            } catch (e) {
-                showToast('❌ Connection error while seeding data', 'error');
-            }
-        };
-
-        const filteredUsers = computed(() => {
-            const q = dashboardSearchQuery.value.trim();
-            if (!q) return dashboardUsers.value;
-            // Support wildcard prefix: "6414*" -> starts with "6414"
-            if (q.endsWith('*')) {
-                const prefix = q.slice(0, -1).toLowerCase();
-                return dashboardUsers.value.filter(u => u.username.toLowerCase().startsWith(prefix));
-            }
-            return dashboardUsers.value.filter(u => u.username.toLowerCase().includes(q.toLowerCase()));
-        });
-
-        const dashboardSelectedUserStats = computed(() => {
-            if (!dashboardSelectedUser.value) return { rounds: 0, avg: 0, max: 0 };
-            const userScores = dashboardScores.value.filter(s => s.playerName === dashboardSelectedUser.value.username);
-            if (userScores.length === 0) return { rounds: 0, avg: 0, max: 0 };
-            const scores = userScores.map(s => s.score);
-            const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
-            const max = Math.max(...scores);
-            return { rounds: userScores.length, avg, max };
-        });
-
-        const selectDashboardUser = async (user) => {
-            dashboardSelectedUser.value = user;
-            await nextTick();
-            updateChart();
-        };
-
-        const updateChart = () => {
-            const canvas = document.getElementById('userChart');
-            if (!canvas) return;
-
-            // Destroy previous chart instance
-            if (dashboardChartInstance) {
-                dashboardChartInstance.destroy();
-                dashboardChartInstance = null;
-            }
-
-            const selectedUser = dashboardSelectedUser.value;
-            if (!selectedUser) return;
-
-            // Get the usernames in the current filter group
-            const groupUsernames = new Set(filteredUsers.value.map(u => u.username));
-
-            // Collect all scores for the filtered group, sorted chronologically
-            const groupScores = dashboardScores.value.filter(s => groupUsernames.has(s.playerName));
-
-            // Build per-user score sequences: { username: [score1, score2, ...] }
-            const perUserScores = {};
-            groupScores.forEach(s => {
-                if (!perUserScores[s.playerName]) perUserScores[s.playerName] = [];
-                perUserScores[s.playerName].push(s.score);
-            });
-
-            // Find max rounds among all filtered users
-            const maxRounds = Math.max(...Object.values(perUserScores).map(arr => arr.length), 0);
-            if (maxRounds === 0) return;
-
-            // Compute group average per round
-            const avgPerRound = [];
-            for (let round = 0; round < maxRounds; round++) {
-                const vals = Object.values(perUserScores)
-                    .map(arr => arr[round])
-                    .filter(v => v !== undefined);
-                avgPerRound.push(vals.length > 0 ? vals.reduce((a, b) => a + b, 0) / vals.length : null);
-            }
-
-            // Selected user's per-round data (null after their last round)
-            const selectedScores = perUserScores[selectedUser.username] || [];
-            const selectedData = Array.from({ length: maxRounds }, (_, i) =>
-                i < selectedScores.length ? selectedScores[i] : null
-            );
-
-            // Build X-axis labels: Round 1, Round 2, ... with dates appended
-            const userRawScores = dashboardScores.value.filter(s => s.playerName === selectedUser.username);
-            const labels = Array.from({ length: maxRounds }, (_, i) => {
-                const entry = userRawScores[i];
-                if (entry && entry.createdAt) {
-                    const d = new Date(entry.createdAt);
-                    const dateStr = `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`;
-                    return `Round ${i + 1} (${dateStr})`;
-                }
-                return `Round ${i + 1}`;
-            });
-
-            const ctx = canvas.getContext('2d');
-            dashboardChartInstance = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels,
-                    datasets: [
-                        {
-                            label: `${selectedUser.username}`,
-                            data: selectedData,
-                            borderColor: '#00d2ff',
-                            backgroundColor: 'rgba(0, 210, 255, 0.12)',
-                            borderWidth: 2.5,
-                            pointBackgroundColor: '#00d2ff',
-                            pointBorderColor: '#fff',
-                            pointBorderWidth: 1.5,
-                            pointRadius: 5,
-                            pointHoverRadius: 7,
-                            tension: 0.35,
-                            spanGaps: false,  // stops the line at null (when user has fewer rounds)
-                            fill: true
-                        },
-                        {
-                            label: `Group Average (${dashboardSearchQuery.value || 'All'})`,
-                            data: avgPerRound,
-                            borderColor: '#a855f7',
-                            backgroundColor: 'rgba(168, 85, 247, 0.07)',
-                            borderWidth: 2,
-                            borderDash: [6, 4],
-                            pointBackgroundColor: '#a855f7',
-                            pointBorderColor: '#fff',
-                            pointBorderWidth: 1.5,
-                            pointRadius: 4,
-                            pointHoverRadius: 6,
-                            tension: 0.35,
-                            spanGaps: true,   // average line fills across all rounds
-                            fill: false
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    interaction: { mode: 'index', intersect: false },
-                    plugins: {
-                        legend: {
-                            position: 'top',
-                            labels: {
-                                color: '#94a3b8',
-                                font: { family: 'Outfit, sans-serif', size: 12 },
-                                usePointStyle: true,
-                                padding: 16
-                            }
-                        },
-                        tooltip: {
-                            backgroundColor: 'rgba(18, 24, 36, 0.95)',
-                            titleColor: '#e2e8f0',
-                            bodyColor: '#94a3b8',
-                            borderColor: 'rgba(255,255,255,0.08)',
-                            borderWidth: 1,
-                            callbacks: {
-                                label: (ctx) => {
-                                    const v = ctx.parsed.y;
-                                    return v !== null ? `${ctx.dataset.label}: ${v.toFixed(4)} w/s` : `${ctx.dataset.label}: —`;
-                                }
-                            }
-                        }
-                    },
-                    scales: {
-                        x: {
-                            ticks: {
-                                color: '#94a3b8',
-                                font: { family: 'Outfit, sans-serif', size: 11 },
-                                maxRotation: 30
-                            },
-                            grid: { color: 'rgba(255,255,255,0.04)' }
-                        },
-                        y: {
-                            ticks: {
-                                color: '#94a3b8',
-                                font: { family: 'Outfit, sans-serif', size: 11 },
-                                callback: v => v.toFixed(3)
-                            },
-                            grid: { color: 'rgba(255,255,255,0.04)' },
-                            title: {
-                                display: true,
-                                text: 'Speed (words/sec)',
-                                color: '#64748b',
-                                font: { size: 11 }
-                            }
-                        }
-                    }
-                }
-            });
         };
 
         const switchViewMode = (mode) => {
@@ -1763,6 +1524,13 @@ createApp({
                 viewMode.value = 'admin';
                 activeTab.value = 'crosswords';
                 fetchCrosswordDirs();
+            } else if (hash === 'notes') {
+                viewMode.value = 'admin';
+                activeTab.value = 'notes';
+                fetchNotes();
+            } else if (hash === 'auth') {
+                viewMode.value = 'admin';
+                activeTab.value = 'auth';
             }
         };
 
@@ -1818,7 +1586,8 @@ createApp({
                     playerAvatar,
                     labs: selectedPlayDirs.value,
                     wordCount: placedWords.value.length,
-                    time: timerSeconds.value
+                    time: timerSeconds.value,
+                    revealsUsed: revealCount.value
                 };
 
                 const response = await fetch(`${API_URL}/rankings`, {
@@ -1863,19 +1632,6 @@ createApp({
         });
 
         return {
-            // Dashboard States & Methods
-            dashboardUsers,
-            dashboardScores,
-            dashboardLoading,
-            dashboardSearchQuery,
-            dashboardSelectedUser,
-            filteredUsers,
-            dashboardSelectedUserStats,
-            selectDashboardUser,
-            fetchAdminDashboardData,
-            updateChart,
-            seedMockData,
-
             viewMode,
             activeTab,
             currentUser,

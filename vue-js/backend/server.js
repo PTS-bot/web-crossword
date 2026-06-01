@@ -94,6 +94,7 @@ const rankingSchema = new mongoose.Schema({
     wordCount: { type: Number, required: true },
     time: { type: Number, required: true },
     score: { type: Number, required: true },
+    revealsUsed: { type: Number, default: 0 },
     createdAt: { type: Date, default: Date.now }
 });
 
@@ -526,6 +527,9 @@ app.post('/api/admin/seed-mock-data', checkAdmin, async (req, res) => {
                 const createdAt = new Date();
                 createdAt.setDate(createdAt.getDate() - (rounds - round));
 
+                // Random reveals count (0 to 4)
+                const revealsUsed = Math.floor(Math.random() * 5);
+
                 mockScores.push({
                     playerName: user.username,
                     playerAvatar: user.avatar,
@@ -534,6 +538,7 @@ app.post('/api/admin/seed-mock-data', checkAdmin, async (req, res) => {
                     wordCount,
                     time,
                     score,
+                    revealsUsed,
                     createdAt
                 });
             }
@@ -570,7 +575,7 @@ app.get('/api/rankings', async (req, res) => {
 // POST /api/rankings - Submit a new score
 app.post('/api/rankings', async (req, res) => {
     try {
-        const { playerName, playerAvatar, labs, wordCount, time } = req.body;
+        const { playerName, playerAvatar, labs, wordCount, time, revealsUsed } = req.body;
         if (!playerName || !labs || !Array.isArray(labs) || labs.length === 0 || !wordCount || !time) {
             return res.status(400).json({ success: false, message: 'playerName, labs, wordCount, time are required' });
         }
@@ -585,7 +590,8 @@ app.post('/api/rankings', async (req, res) => {
             labsKey,
             wordCount,
             time,
-            score
+            score,
+            revealsUsed: Number(revealsUsed) || 0
         });
 
         res.status(201).json({ success: true, data: newRanking, message: 'Score saved!' });
