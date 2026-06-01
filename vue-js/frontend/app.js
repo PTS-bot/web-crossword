@@ -75,7 +75,7 @@ createApp({
         const guestName = ref(localStorage.getItem('guestName') || '');
         const guestAvatar = ref(localStorage.getItem('guestAvatar') || 'avatar1');
 
-        const avatarOptions = ['avatar1', 'avatar2', 'avatar3', 'avatar4', 'avatar5', 'avatar6'];
+        const avatarOptions = ['avatar1','avatar2','avatar3','avatar4','avatar5','avatar6'];
 
         const profileForm = reactive({
             guestName: guestName.value,
@@ -98,7 +98,7 @@ createApp({
         const gridCells = ref([]); // 2D array of cells
         const acrossClues = ref([]); // Across clues list
         const downClues = ref([]); // Down clues list
-
+        
         // Active cell selection
         const activeRow = ref(-1);
         const activeCol = ref(-1);
@@ -197,6 +197,212 @@ createApp({
                 fetchNotes();
                 hideNoteForm();
             }
+            if (tabId === 'dashboard') {
+                fetchAdminDashboardData();
+            }
+        };
+
+        // --- Admin Dashboard Functions ---
+        const fetchAdminDashboardData = async () => {
+            dashboardLoading.value = true;
+            dashboardSelectedUser.value = null;
+            if (dashboardChartInstance) {
+                dashboardChartInstance.destroy();
+                dashboardChartInstance = null;
+            }
+            try {
+                const [usersRes, scoresRes] = await Promise.all([
+                    fetch(`${API_URL}/admin/users`, { credentials: 'include' }),
+                    fetch(`${API_URL}/admin/scores`, { credentials: 'include' })
+                ]);
+                const usersData = await usersRes.json();
+                const scoresData = await scoresRes.json();
+                if (usersData.success) dashboardUsers.value = usersData.users;
+                if (scoresData.success) dashboardScores.value = scoresData.scores;
+            } catch (e) {
+                showToast('❌ Failed to load dashboard data', 'error');
+            } finally {
+                dashboardLoading.value = false;
+            }
+        };
+
+        const filteredUsers = computed(() => {
+            const q = dashboardSearchQuery.value.trim();
+            if (!q) return dashboardUsers.value;
+            // Support wildcard prefix: "6414*" -> starts with "6414"
+            if (q.endsWith('*')) {
+                const prefix = q.slice(0, -1).toLowerCase();
+                return dashboardUsers.value.filter(u => u.username.toLowerCase().startsWith(prefix));
+            }
+            return dashboardUsers.value.filter(u => u.username.toLowerCase().includes(q.toLowerCase()));
+        });
+
+        const dashboardSelectedUserStats = computed(() => {
+            if (!dashboardSelectedUser.value) return { rounds: 0, avg: 0, max: 0 };
+            const userScores = dashboardScores.value.filter(s => s.playerName === dashboardSelectedUser.value.username);
+            if (userScores.length === 0) return { rounds: 0, avg: 0, max: 0 };
+            const scores = userScores.map(s => s.score);
+            const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
+            const max = Math.max(...scores);
+            return { rounds: userScores.length, avg, max };
+        });
+
+        const selectDashboardUser = async (user) => {
+            dashboardSelectedUser.value = user;
+            await nextTick();
+            updateChart();
+        };
+
+        const updateChart = () => {
+            const canvas = document.getElementById('userChart');
+            if (!canvas) return;
+
+            // Destroy previous chart instance
+            if (dashboardChartInstance) {
+                dashboardChartInstance.destroy();
+                dashboardChartInstance = null;
+            }
+
+            const selectedUser = dashboardSelectedUser.value;
+            if (!selectedUser) return;
+
+            // Get the usernames in the current filter group
+            const groupUsernames = new Set(filteredUsers.value.map(u => u.username));
+
+            // Collect all scores for the filtered group, sorted chronologically
+            const groupScores = dashboardScores.value.filter(s => groupUsernames.has(s.playerName));
+
+            // Build per-user score sequences: { username: [score1, score2, ...] }
+            const perUserScores = {};
+            groupScores.forEach(s => {
+                if (!perUserScores[s.playerName]) perUserScores[s.playerName] = [];
+                perUserScores[s.playerName].push(s.score);
+            });
+
+            // Find max rounds among all filtered users
+            const maxRounds = Math.max(...Object.values(perUserScores).map(arr => arr.length), 0);
+            if (maxRounds === 0) return;
+
+            // Compute group average per round
+            const avgPerRound = [];
+            for (let round = 0; round < maxRounds; round++) {
+                const vals = Object.values(perUserScores)
+                    .map(arr => arr[round])
+                    .filter(v => v !== undefined);
+                avgPerRound.push(vals.length > 0 ? vals.reduce((a, b) => a + b, 0) / vals.length : null);
+            }
+
+            // Selected user's per-round data (null after their last round)
+            const selectedScores = perUserScores[selectedUser.username] || [];
+            const selectedData = Array.from({ length: maxRounds }, (_, i) =>
+                i < selectedScores.length ? selectedScores[i] : null
+            );
+
+            // Build X-axis labels: Round 1, Round 2, ... with dates appended
+            const userRawScores = dashboardScores.value.filter(s => s.playerName === selectedUser.username);
+            const labels = Array.from({ length: maxRounds }, (_, i) => {
+                const entry = userRawScores[i];
+                if (entry && entry.createdAt) {
+                    const d = new Date(entry.createdAt);
+                    const dateStr = `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`;
+                    return `Round ${i + 1} (${dateStr})`;
+                }
+                return `Round ${i + 1}`;
+            });
+
+            const ctx = canvas.getContext('2d');
+            dashboardChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels,
+                    datasets: [
+                        {
+                            label: `${selectedUser.username}`,
+                            data: selectedData,
+                            borderColor: '#00d2ff',
+                            backgroundColor: 'rgba(0, 210, 255, 0.12)',
+                            borderWidth: 2.5,
+                            pointBackgroundColor: '#00d2ff',
+                            pointBorderColor: '#fff',
+                            pointBorderWidth: 1.5,
+                            pointRadius: 5,
+                            pointHoverRadius: 7,
+                            tension: 0.35,
+                            spanGaps: false,  // stops the line at null (when user has fewer rounds)
+                            fill: true
+                        },
+                        {
+                            label: `Group Average (${dashboardSearchQuery.value || 'All'})`,
+                            data: avgPerRound,
+                            borderColor: '#a855f7',
+                            backgroundColor: 'rgba(168, 85, 247, 0.07)',
+                            borderWidth: 2,
+                            borderDash: [6, 4],
+                            pointBackgroundColor: '#a855f7',
+                            pointBorderColor: '#fff',
+                            pointBorderWidth: 1.5,
+                            pointRadius: 4,
+                            pointHoverRadius: 6,
+                            tension: 0.35,
+                            spanGaps: true,   // average line fills across all rounds
+                            fill: false
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                            labels: {
+                                color: '#94a3b8',
+                                font: { family: 'Outfit, sans-serif', size: 12 },
+                                usePointStyle: true,
+                                padding: 16
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(18, 24, 36, 0.95)',
+                            titleColor: '#e2e8f0',
+                            bodyColor: '#94a3b8',
+                            borderColor: 'rgba(255,255,255,0.08)',
+                            borderWidth: 1,
+                            callbacks: {
+                                label: (ctx) => {
+                                    const v = ctx.parsed.y;
+                                    return v !== null ? `${ctx.dataset.label}: ${v.toFixed(4)} w/s` : `${ctx.dataset.label}: —`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: {
+                                color: '#94a3b8',
+                                font: { family: 'Outfit, sans-serif', size: 11 },
+                                maxRotation: 30
+                            },
+                            grid: { color: 'rgba(255,255,255,0.04)' }
+                        },
+                        y: {
+                            ticks: {
+                                color: '#94a3b8',
+                                font: { family: 'Outfit, sans-serif', size: 11 },
+                                callback: v => v.toFixed(3)
+                            },
+                            grid: { color: 'rgba(255,255,255,0.04)' },
+                            title: {
+                                display: true,
+                                text: 'Speed (words/sec)',
+                                color: '#64748b',
+                                font: { size: 11 }
+                            }
+                        }
+                    }
+                }
+            });
         };
 
         const switchViewMode = (mode) => {
@@ -222,16 +428,16 @@ createApp({
 
         // ── Avatar SVG generator ──────────────────────────────
         const AVATAR_COLORS = [
-            ['#7c3aed', '#ede9fe'], ['#db2777', '#fce7f3'], ['#0891b2', '#cffafe'],
-            ['#d97706', '#fef3c7'], ['#059669', '#d1fae5'], ['#dc2626', '#fee2e2']
+            ['#7c3aed','#ede9fe'], ['#db2777','#fce7f3'], ['#0891b2','#cffafe'],
+            ['#d97706','#fef3c7'], ['#059669','#d1fae5'], ['#dc2626','#fee2e2']
         ];
-        const AVATAR_SYMBOLS = ['😺', '🦊', '🐧', '🦁', '🐸', '🦄'];
+        const AVATAR_SYMBOLS = ['😺','🦊','🐧','🦁','🐸','🦄'];
 
         const getAvatarSvg = (av) => {
             if (av && av.startsWith('http')) {
                 return `<img src="${av}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" onerror="this.src=''"/>`;
             }
-            const idx = parseInt((av || 'avatar1').replace('avatar', '')) - 1;
+            const idx = parseInt((av || 'avatar1').replace('avatar','')) - 1;
             const safeIdx = Math.max(0, Math.min(5, isNaN(idx) ? 0 : idx));
             const [bg] = AVATAR_COLORS[safeIdx];
             const sym = AVATAR_SYMBOLS[safeIdx];
@@ -305,7 +511,7 @@ createApp({
                     } else {
                         showToast(`❌ ${data.message}`, 'error');
                     }
-                } catch (e) {
+                } catch(e) {
                     showToast('❌ Connection error', 'error');
                 }
             } else {
@@ -347,7 +553,7 @@ createApp({
                 } else {
                     showToast(`❌ ${data.message}`, 'error');
                 }
-            } catch (e) {
+            } catch(e) {
                 showToast('❌ Connection error', 'error');
             } finally {
                 changingPassword.value = false;
@@ -404,7 +610,7 @@ createApp({
         const logoutPlayer = async () => {
             try {
                 await fetch(`${API_URL}/auth/logout`, { method: 'POST' });
-            } catch (e) { }
+            } catch(e) {}
             currentUser.value = null;
             showToast('🚪 Logged out successfully', 'info');
         };
@@ -422,7 +628,7 @@ createApp({
                 const response = await fetch(`${API_URL}/health`);
                 if (!response.ok) throw new Error('API server returned error');
                 const data = await response.json();
-
+                
                 if (data.success) {
                     serviceStatus.backend = data.services.backend === 'running' ? 'ok' : 'error';
                     serviceStatus.database = data.services.database === 'connected' ? 'ok' : 'error';
@@ -619,7 +825,7 @@ createApp({
                 const data = await response.json();
                 if (data.success) {
                     crosswordDirs.value = data.data;
-
+                    
                     // Sync play directory selection
                     if (crosswordDirs.value.length > 0 && selectedPlayDirs.value.length === 0) {
                         selectedPlayDirs.value = [crosswordDirs.value[0].name];
@@ -646,11 +852,11 @@ createApp({
                 const data = await response.json();
                 if (data.success) {
                     maxAvailableWords.value = data.data.length;
-
+                    
                     if (playConfig.wordCount > maxAvailableWords.value || playConfig.wordCount <= 0) {
                         playConfig.wordCount = Math.min(10, maxAvailableWords.value);
                     }
-
+                    
                     if (maxAvailableWords.value >= 3 && playConfig.wordCount < 3) {
                         playConfig.wordCount = 3;
                     } else if (maxAvailableWords.value < 3) {
@@ -763,7 +969,7 @@ createApp({
                 return;
             }
             selectedFileName.value = file.name;
-
+            
             const reader = new FileReader();
             reader.onload = (e) => {
                 const text = e.target.result;
@@ -775,15 +981,15 @@ createApp({
         const parseCSVText = (text) => {
             const lines = text.split(/\r?\n/);
             const results = [];
-
+            
             for (const line of lines) {
                 if (!line.trim()) continue;
-
+                
                 // Quote-aware CSV cell splitting
                 let cells = [];
                 let current = '';
                 let inQuotes = false;
-
+                
                 for (let i = 0; i < line.length; i++) {
                     const char = line[i];
                     if (char === '"') {
@@ -796,10 +1002,10 @@ createApp({
                     }
                 }
                 cells.push(current.trim());
-
+                
                 // Clean quotes from parsed cells
                 cells = cells.map(c => c.replace(/^"|"$/g, '').trim());
-
+                
                 if (cells.length >= 2 && cells[0]) {
                     // Keep original text for verification, but clean word for crossword grids
                     // We only strip spaces, dashes, commas and parentheses, leaving normal alphabet letters of any language.
@@ -812,7 +1018,7 @@ createApp({
                     }
                 }
             }
-
+            
             parsedFileWords.value = results;
             if (results.length === 0) {
                 showToast('⚠️ No valid word data found in the CSV file', 'warning');
@@ -874,7 +1080,7 @@ createApp({
 
                 rawDirectoryWords.value = data.data;
                 requestedCount.value = playConfig.wordCount;
-
+                
                 // Build crossword grid layout
                 const generated = generateCrossword(data.data, playConfig.wordCount);
                 if (!generated || generated.placed.length === 0) {
@@ -886,7 +1092,7 @@ createApp({
                 gridCells.value = generated.gridCells;
                 acrossClues.value = generated.acrossClues;
                 downClues.value = generated.downClues;
-
+                
                 gameState.value = 'playing';
                 startTimer();
                 revealMode.value = false;
@@ -926,7 +1132,7 @@ createApp({
                 // Shuffle list randomly
                 let shuffled = [...cleanList].sort(() => Math.random() - 0.5);
                 let selected = shuffled.slice(0, targetCount);
-
+                
                 // Sort by word length descending - longer words are best to place first
                 selected.sort((a, b) => b.word.length - a.word.length);
 
@@ -942,7 +1148,7 @@ createApp({
                 for (let i = 0; i < firstWord.length; i++) {
                     grid[startY][startX + i] = firstWord[i];
                 }
-
+                
                 placed.push({
                     word: firstWord,
                     clue: selected[0].clue,
@@ -955,7 +1161,7 @@ createApp({
                 for (let wIdx = 1; wIdx < selected.length; wIdx++) {
                     const currentItem = selected[wIdx];
                     const word = currentItem.word;
-
+                    
                     let bestPositionForWord = null;
                     let highestScoreForWord = -Infinity;
 
@@ -1006,7 +1212,7 @@ createApp({
                 // Sum up placement success metrics
                 if (placed.length > maxPlacedCount) {
                     maxPlacedCount = placed.length;
-
+                    
                     // Sum scores
                     let totalScore = placed.reduce((sum, p) => sum + (p.score || 0), 0);
                     maxScore = totalScore;
@@ -1384,14 +1590,14 @@ createApp({
             } else {
                 activeRow.value = r;
                 activeCol.value = c;
-
+                
                 // Set active direction based on matching words in cell
                 if (cell.words.length > 0) {
                     // Try to keep current direction if cell is part of a word in that direction
                     const wordIds = cell.words;
                     const matchingWords = placedWords.value.filter(p => wordIds.includes(p.id));
                     const hasCurrentDirection = matchingWords.some(p => p.direction === activeDirection.value);
-
+                    
                     if (!hasCurrentDirection && matchingWords.length > 0) {
                         activeDirection.value = matchingWords[0].direction;
                     }
@@ -1604,7 +1810,7 @@ createApp({
             // Route based on URL hash (e.g. /#admin)
             applyHashRoute();
             window.addEventListener('hashchange', applyHashRoute);
-
+            
             // Fetch initial rankings
             fetchRankings();
         });
