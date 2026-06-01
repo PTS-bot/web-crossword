@@ -695,15 +695,14 @@
                         <form @submit.prevent="handleLogin">
                             <div class="form-group">
                                 <label>Username</label>
-                                <input type="text" v-model="authForm.loginUsername" required placeholder="admin">
+                                <input type="text" v-model="authForm.loginUsername" required placeholder="Enter username...">
                             </div>
                             <div class="form-group">
                                 <label>Password</label>
-                                <input type="password" v-model="authForm.loginPassword" required placeholder="admin1234">
+                                <input type="password" v-model="authForm.loginPassword" required placeholder="Enter password...">
                             </div>
                             <button type="submit" class="btn btn-primary btn-block">Sign In</button>
                         </form>
-                        <p class="auth-hint">Default: <code>admin</code> / <code>admin1234</code></p>
                     </div>
                     <div class="auth-card" id="registerCard">
                         <h3><i class="fas fa-user-plus"></i> Register</h3>
@@ -851,17 +850,16 @@
                     <form @submit.prevent="handleLoginModal">
                         <div class="form-group">
                             <label>Username</label>
-                            <input type="text" v-model="authForm.loginUsername" required placeholder="admin" class="form-control-input">
+                            <input type="text" v-model="authForm.loginUsername" required placeholder="Enter username..." class="form-control-input">
                         </div>
                         <div class="form-group">
                             <label>Password</label>
-                            <input type="password" v-model="authForm.loginPassword" required placeholder="••••••••" class="form-control-input">
+                            <input type="password" v-model="authForm.loginPassword" required placeholder="Enter password..." class="form-control-input">
                         </div>
                         <button type="submit" class="btn btn-primary btn-block">
                             <i class="fas fa-sign-in-alt"></i> Sign In
                         </button>
                     </form>
-                    <p class="auth-hint" style="margin-top:14px;">Default: <code>admin</code> / <code>admin1234</code></p>
                     <p style="text-align:center;margin-top:10px;font-size:0.85rem;color:var(--text-muted);">
                         No account? <a href="#" @click.prevent="authModalTab='register'" style="color:var(--primary);">Register here</a>
                     </p>

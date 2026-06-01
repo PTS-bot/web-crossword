@@ -502,7 +502,8 @@ createApp({
                     const res = await fetch(`${API_URL}/auth/update-avatar`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ avatar: av })
+                        body: JSON.stringify({ avatar: av }),
+                        credentials: 'include'
                     });
                     const data = await res.json();
                     if (data.success) {
@@ -542,7 +543,8 @@ createApp({
                     body: JSON.stringify({
                         currentPassword: profileForm.currentPassword,
                         newPassword: profileForm.newPassword
-                    })
+                    }),
+                    credentials: 'include'
                 });
                 const data = await res.json();
                 if (data.success) {
@@ -567,7 +569,8 @@ createApp({
                 const response = await fetch(`${API_URL}/auth/login`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, password })
+                    body: JSON.stringify({ username, password }),
+                    credentials: 'include'
                 });
                 const data = await response.json();
                 if (data.success) {
@@ -591,7 +594,8 @@ createApp({
                 const response = await fetch(`${API_URL}/auth/register`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, password })
+                    body: JSON.stringify({ username, password }),
+                    credentials: 'include'
                 });
                 const data = await response.json();
                 if (data.success) {
@@ -609,7 +613,7 @@ createApp({
 
         const logoutPlayer = async () => {
             try {
-                await fetch(`${API_URL}/auth/logout`, { method: 'POST' });
+                await fetch(`${API_URL}/auth/logout`, { method: 'POST', credentials: 'include' });
             } catch(e) {}
             currentUser.value = null;
             showToast('🚪 Logged out successfully', 'info');
@@ -625,7 +629,7 @@ createApp({
         const checkHealth = async () => {
             serviceStatus.nginx = 'ok';
             try {
-                const response = await fetch(`${API_URL}/health`);
+                const response = await fetch(`${API_URL}/health`, { credentials: 'include' });
                 if (!response.ok) throw new Error('API server returned error');
                 const data = await response.json();
                 
@@ -643,7 +647,7 @@ createApp({
         // --- 🔒 Authentication & Profile ---
         const fetchUserProfile = async () => {
             try {
-                const response = await fetch(`${API_URL}/auth/profile`);
+                const response = await fetch(`${API_URL}/auth/profile`, { credentials: 'include' });
                 const data = await response.json();
                 if (data.success && data.authenticated) {
                     currentUser.value = data.user;
@@ -664,7 +668,8 @@ createApp({
                 const response = await fetch(`${API_URL}/auth/login`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, password })
+                    body: JSON.stringify({ username, password }),
+                    credentials: 'include'
                 });
                 const data = await response.json();
 
@@ -690,7 +695,8 @@ createApp({
                 const response = await fetch(`${API_URL}/auth/register`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, password })
+                    body: JSON.stringify({ username, password }),
+                    credentials: 'include'
                 });
                 const data = await response.json();
 
@@ -709,7 +715,7 @@ createApp({
 
         const logout = async () => {
             try {
-                const response = await fetch(`${API_URL}/auth/logout`, { method: 'POST' });
+                const response = await fetch(`${API_URL}/auth/logout`, { method: 'POST', credentials: 'include' });
                 const data = await response.json();
 
                 if (data.success) {
@@ -728,7 +734,7 @@ createApp({
         const fetchNotes = async () => {
             notesLoading.value = true;
             try {
-                const response = await fetch(`${API_URL}/notes`);
+                const response = await fetch(`${API_URL}/notes`, { credentials: 'include' });
                 const data = await response.json();
                 if (data.success) {
                     currentNotes.value = data.data;
@@ -779,7 +785,8 @@ createApp({
                 const response = await fetch(url, {
                     method,
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(notePayload)
+                    body: JSON.stringify(notePayload),
+                    credentials: 'include'
                 });
                 const data = await response.json();
 
@@ -802,7 +809,7 @@ createApp({
         const deleteNote = async (noteId) => {
             if (!confirm('Are you sure you want to delete this note from MongoDB?')) return;
             try {
-                const response = await fetch(`${API_URL}/notes/${noteId}`, { method: 'DELETE' });
+                const response = await fetch(`${API_URL}/notes/${noteId}`, { method: 'DELETE', credentials: 'include' });
                 const data = await response.json();
                 if (data.success) {
                     showToast('🗑️ Note deleted successfully', 'success');
@@ -821,7 +828,7 @@ createApp({
         const fetchCrosswordDirs = async () => {
             dirsLoading.value = true;
             try {
-                const response = await fetch(`${API_URL}/crosswords/directories`);
+                const response = await fetch(`${API_URL}/crosswords/directories`, { credentials: 'include' });
                 const data = await response.json();
                 if (data.success) {
                     crosswordDirs.value = data.data;
@@ -848,7 +855,7 @@ createApp({
             }
             try {
                 const dirsParam = selectedPlayDirs.value.join(',');
-                const response = await fetch(`${API_URL}/crosswords/words?directory=${encodeURIComponent(dirsParam)}`);
+                const response = await fetch(`${API_URL}/crosswords/words?directory=${encodeURIComponent(dirsParam)}`, { credentials: 'include' });
                 const data = await response.json();
                 if (data.success) {
                     maxAvailableWords.value = data.data.length;
@@ -897,7 +904,8 @@ createApp({
                 const response = await fetch(`${API_URL}/crosswords/directories`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name: newDirName.value.trim() })
+                    body: JSON.stringify({ name: newDirName.value.trim() }),
+                    credentials: 'include'
                 });
                 const data = await response.json();
                 if (data.success) {
@@ -916,7 +924,8 @@ createApp({
             if (!confirm(`Are you sure you want to delete category '${name}' and all its words? This action cannot be undone.`)) return;
             try {
                 const response = await fetch(`${API_URL}/crosswords/directories/${name}`, {
-                    method: 'DELETE'
+                    method: 'DELETE',
+                    credentials: 'include'
                 });
                 const data = await response.json();
                 if (data.success) {
@@ -1049,7 +1058,8 @@ createApp({
                     body: JSON.stringify({
                         directory: uploadTargetDir.value,
                         words: parsedFileWords.value
-                    })
+                    }),
+                    credentials: 'include'
                 });
                 const data = await response.json();
                 if (data.success) {
@@ -1071,7 +1081,7 @@ createApp({
             if (selectedPlayDirs.value.length === 0) return;
             try {
                 const dirsParam = selectedPlayDirs.value.join(',');
-                const response = await fetch(`${API_URL}/crosswords/words?directory=${encodeURIComponent(dirsParam)}`);
+                const response = await fetch(`${API_URL}/crosswords/words?directory=${encodeURIComponent(dirsParam)}`, { credentials: 'include' });
                 const data = await response.json();
                 if (!data.success || data.data.length === 0) {
                     showToast('❌ Cannot start game: No words found in the selected category', 'error');
@@ -1740,7 +1750,7 @@ createApp({
                     const labsKey = selectedPlayDirs.value.slice().sort().join('+');
                     url += `?labsKey=${encodeURIComponent(labsKey)}`;
                 }
-                const response = await fetch(url);
+                const response = await fetch(url, { credentials: 'include' });
                 const data = await response.json();
                 if (data.success) {
                     rankingList.value = data.data;
@@ -1778,7 +1788,8 @@ createApp({
                 const response = await fetch(`${API_URL}/rankings`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
+                    body: JSON.stringify(payload),
+                    credentials: 'include'
                 });
                 const data = await response.json();
 
