@@ -82,7 +82,8 @@ createApp({
             customAvatarUrl: '',
             currentPassword: '',
             newPassword: '',
-            confirmPassword: ''
+            confirmPassword: '',
+            uploadFileName: ''
         });
 
         // Prefill ranking name if user is logged in
@@ -235,6 +236,36 @@ createApp({
             const [bg] = AVATAR_COLORS[safeIdx];
             const sym = AVATAR_SYMBOLS[safeIdx];
             return `<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%"><circle cx="20" cy="20" r="20" fill="${bg}"/><text x="20" y="27" text-anchor="middle" font-size="20">${sym}</text></svg>`;
+        };
+
+        // getAvatarDisplay — renders base64 data URLs as <img>, preset keys as SVG
+        const getAvatarDisplay = (av) => {
+            if (!av) av = 'avatar1';
+            // Base64 data URL or http URL
+            if (av.startsWith('data:') || av.startsWith('http')) {
+                return `<img src="${av}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" />`;
+            }
+            // Preset SVG avatar
+            return getAvatarSvg(av);
+        };
+
+        // onAvatarFileSelected — converts chosen image file to base64 and saves
+        const onAvatarFileSelected = (event) => {
+            const file = event.target.files[0];
+            if (!file) return;
+            if (file.size > 2 * 1024 * 1024) {
+                showToast('❌ Image file must be under 2 MB', 'error');
+                return;
+            }
+            profileForm.uploadFileName = file.name;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const dataUrl = e.target.result;
+                selectAvatar(dataUrl);
+            };
+            reader.readAsDataURL(file);
+            // Reset input so same file can be re-selected
+            event.target.value = '';
         };
 
         const openProfileModal = () => {
@@ -596,7 +627,7 @@ createApp({
                     }
                 }
             } catch (e) {
-                showToast('❌ ไม่สามารถดึงข้อมูลหมวดหมู่ได้', 'error');
+                showToast('❌ Failed to fetch crossword categories', 'error');
             } finally {
                 dirsLoading.value = false;
             }
@@ -664,35 +695,35 @@ createApp({
                 });
                 const data = await response.json();
                 if (data.success) {
-                    showToast(`✅ สร้างหมวดหมู่ '${newDirName.value}' สำเร็จ!`, 'success');
+                    showToast(`✅ Created category '${newDirName.value}' successfully!`, 'success');
                     newDirName.value = '';
                     fetchCrosswordDirs();
                 } else {
-                    showToast(`❌ สร้างหมวดหมู่ล้มเหลว: ${data.message}`, 'error');
+                    showToast(`❌ Failed to create category: ${data.message}`, 'error');
                 }
             } catch (e) {
-                showToast('❌ มีปัญหาการเชื่อมต่อเซิร์ฟเวอร์', 'error');
+                showToast('❌ Server connection error', 'error');
             }
         };
 
         const deleteDirectory = async (name) => {
-            if (!confirm(`คุณแน่ใจหรือไม่ว่าต้องการลบหมวดหมู่ '${name}' และคำศัพท์ทั้งหมดข้างใน? การกระทำนี้ไม่สามารถย้อนคืนได้`)) return;
+            if (!confirm(`Are you sure you want to delete category '${name}' and all its words? This action cannot be undone.`)) return;
             try {
                 const response = await fetch(`${API_URL}/crosswords/directories/${name}`, {
                     method: 'DELETE'
                 });
                 const data = await response.json();
                 if (data.success) {
-                    showToast('🗑️ ลบหมวดหมู่เรียบร้อยแล้ว', 'success');
+                    showToast('🗑️ Category deleted successfully', 'success');
                     if (selectedAdminDir.value === name) selectedAdminDir.value = '';
                     if (uploadTargetDir.value === name) uploadTargetDir.value = '';
                     if (playConfig.directory === name) playConfig.directory = '';
                     fetchCrosswordDirs();
                 } else {
-                    showToast(`❌ ลบล้มเหลว: ${data.message}`, 'error');
+                    showToast(`❌ Delete failed: ${data.message}`, 'error');
                 }
             } catch (e) {
-                showToast('❌ มีปัญหาการเชื่อมต่อเซิร์ฟเวอร์', 'error');
+                showToast('❌ Server connection error', 'error');
             }
         };
 
@@ -728,7 +759,7 @@ createApp({
 
         const handleFile = (file) => {
             if (!file.name.endsWith('.csv')) {
-                showToast('❌ รองรับเฉพาะไฟล์นามสกุล .csv เท่านั้น', 'error');
+                showToast('❌ Only .csv files are supported', 'error');
                 return;
             }
             selectedFileName.value = file.name;
@@ -784,9 +815,9 @@ createApp({
             
             parsedFileWords.value = results;
             if (results.length === 0) {
-                showToast('⚠️ ไม่พบข้อมูลคำศัพท์ที่ถูกต้องในไฟล์ CSV', 'warning');
+                showToast('⚠️ No valid word data found in the CSV file', 'warning');
             } else {
-                showToast(`📊 อ่านไฟล์สำเร็จ พบคำศัพท์ ${results.length} คำ`, 'success');
+                showToast(`📊 File read successfully! Found ${results.length} words`, 'success');
             }
         };
 
@@ -797,11 +828,11 @@ createApp({
 
         const submitUploadedWords = async () => {
             if (!uploadTargetDir.value) {
-                showToast('⚠️ กรุณาเลือกหมวดหมู่ที่ต้องการบันทึก', 'warning');
+                showToast('⚠️ Please select a category to save to', 'warning');
                 return;
             }
             if (parsedFileWords.value.length === 0) {
-                showToast('⚠️ ไม่มีคำศัพท์ที่จะบันทึก', 'warning');
+                showToast('⚠️ No words to save', 'warning');
                 return;
             }
 
@@ -816,14 +847,14 @@ createApp({
                 });
                 const data = await response.json();
                 if (data.success) {
-                    showToast(`✅ นำเข้าข้อมูล ${data.count} คำ ลงหมวดหมู่ '${uploadTargetDir.value}' สำเร็จ!`, 'success');
+                    showToast(`✅ Successfully imported ${data.count} words to category '${uploadTargetDir.value}'!`, 'success');
                     clearParsedFile();
                     fetchCrosswordDirs();
                 } else {
-                    showToast(`❌ อัปโหลดล้มเหลว: ${data.message}`, 'error');
+                    showToast(`❌ Upload failed: ${data.message}`, 'error');
                 }
             } catch (e) {
-                showToast('❌ เชื่อมต่อเซิร์ฟเวอร์ล้มเหลว', 'error');
+                showToast('❌ Server connection failed', 'error');
             }
         };
 
@@ -837,7 +868,7 @@ createApp({
                 const response = await fetch(`${API_URL}/crosswords/words?directory=${encodeURIComponent(dirsParam)}`);
                 const data = await response.json();
                 if (!data.success || data.data.length === 0) {
-                    showToast('❌ ไม่สามารถเริ่มเกมได้ เนื่องจากไม่พบคำศัพท์ในหมวดหมู่นี้', 'error');
+                    showToast('❌ Cannot start game: No words found in the selected category', 'error');
                     return;
                 }
 
@@ -847,7 +878,7 @@ createApp({
                 // Build crossword grid layout
                 const generated = generateCrossword(data.data, playConfig.wordCount);
                 if (!generated || generated.placed.length === 0) {
-                    showToast('⚠️ ไม่สามารถเชื่อมโยงคำศัพท์เป็นตารางได้สำเร็จ กรุณาลองใหม่อีกครั้งหรือเพิ่มคำศัพท์ในระบบ', 'warning');
+                    showToast('⚠️ Failed to generate crossword grid. Please try again or add more words.', 'warning');
                     return;
                 }
 
@@ -871,7 +902,7 @@ createApp({
 
             } catch (e) {
                 console.error(e);
-                showToast('❌ มีข้อผิดพลาดในการโหลดโจทย์เล่นเกม', 'error');
+                showToast('❌ Error loading game challenge', 'error');
             }
         };
 
@@ -1238,9 +1269,9 @@ createApp({
         const toggleRevealMode = () => {
             revealMode.value = !revealMode.value;
             if (revealMode.value) {
-                showToast('👁️ โหมดเฉลย ON — ดับเบิลคลิกที่ช่องเพื่อเปิดเฉลยตัวอักษร', 'warning');
+                showToast('👁️ Reveal Mode ON - Double click a cell to reveal the letter', 'warning');
             } else {
-                showToast('🔒 ปิดโหมดเฉลยแล้ว', 'info');
+                showToast('🔒 Reveal Mode OFF', 'info');
             }
         };
 
@@ -1262,7 +1293,7 @@ createApp({
         };
 
         const resetGuesses = () => {
-            if (!confirm('คุณต้องการรีเซ็ตอักษรที่พิมพ์ลงไปทั้งหมดในตารางใช่หรือไม่?')) return;
+            if (!confirm('Are you sure you want to clear all your answers in the grid?')) return;
             gridCells.value.forEach(row => {
                 row.forEach(cell => {
                     if (cell.isActive) {
@@ -1274,7 +1305,7 @@ createApp({
                 });
             });
             revealCount.value = 0;
-            showToast('🔄 ล้างข้อมูลตัวอักษรเรียบร้อยแล้ว', 'info');
+            showToast('🔄 Answers cleared', 'info');
         };
 
 
@@ -1325,19 +1356,19 @@ createApp({
             });
 
             if (emptyCells === totalActiveCells) {
-                showToast('⚠️ กรุณาพิมพ์ตัวอักษรลงในตารางก่อนตรวจคำตอบ', 'warning');
+                showToast('⚠️ Please fill in some letters before checking answers', 'warning');
                 return;
             }
 
             if (allCorrect) {
                 gameState.value = 'completed';
                 stopTimer();
-                showToast('🏆 ยอดเยี่ยม! คุณตอบคำถามถูกต้องทั้งหมด!', 'success');
+                showToast('🏆 Excellent! All answers are correct!', 'success');
             } else {
                 if (emptyCells > 0) {
-                    showToast('❌ ตรวจสอบแล้ว พบตัวอักษรที่ผิด และยังมีช่องว่างที่เติมไม่ครบ', 'error');
+                    showToast('❌ Some answers are incorrect, and there are empty cells left', 'error');
                 } else {
-                    showToast('❌ พบตัวอักษรที่ไม่ถูกต้องในตาราง กรุณาแก้ไขตามสีที่แสดง', 'error');
+                    showToast('❌ Some answers are incorrect. Please correct the highlighted cells.', 'error');
                 }
             }
         };
@@ -1491,7 +1522,7 @@ createApp({
         };
 
         const selectedDirsDisplay = computed(() => {
-            if (selectedPlayDirs.value.length === 0) return 'ยังไม่ได้เลือกโจทย์';
+            if (selectedPlayDirs.value.length === 0) return 'No category selected';
             return selectedPlayDirs.value.join(' + ');
         });
 
@@ -1525,8 +1556,14 @@ createApp({
 
             submittingScore.value = true;
             try {
+                // Determine which avatar to send
+                const playerAvatar = currentUser.value
+                    ? (currentUser.value.avatar || 'avatar1')
+                    : guestAvatar.value;
+
                 const payload = {
                     playerName: name,
+                    playerAvatar,
                     labs: selectedPlayDirs.value,
                     wordCount: placedWords.value.length,
                     time: timerSeconds.value
@@ -1688,6 +1725,8 @@ createApp({
             avatarOptions,
             profileForm,
             getAvatarSvg,
+            getAvatarDisplay,
+            onAvatarFileSelected,
             openProfileModal,
             openAuthModal,
             saveGuestName,

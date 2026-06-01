@@ -809,9 +809,9 @@ body {
 /* Setup Card */
 .game-setup-container {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: center;
-    min-height: 60vh;
+    padding: 10px 20px;
 }
 
 .setup-card {
@@ -2278,21 +2278,54 @@ body {
 }
 
 .ranking-table td {
-    padding: 12px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    padding: 6px 12px;
+    border-bottom: none;
     vertical-align: middle;
 }
 
-.ranking-table tr:hover {
-    background-color: rgba(255, 255, 255, 0.01);
+/* Custom tbody hover highlighting */
+.rank-tbody {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    transition: background-color 0.2s ease;
+}
+
+.rank-tbody:hover {
+    background-color: rgba(255, 255, 255, 0.02);
+}
+
+.rank-tbody:hover tr {
+    background-color: rgba(255, 255, 255, 0.02);
+}
+
+.rank-row-top td {
+    padding-top: 12px;
+    padding-bottom: 2px;
+    border-bottom: none !important;
+}
+
+.rank-row-bottom td {
+    padding-top: 2px;
+    padding-bottom: 12px;
+    border-bottom: none !important;
+}
+
+.col-labs-date-row {
+    padding-left: 12px !important;
+}
+
+.labs-date-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
 }
 
 /* Ranking Table Column widths & styles */
-.col-rank { width: 70px; text-align: center; }
-.col-player { width: 140px; }
-.col-labs { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.col-words { width: 60px; }
-.col-time { width: 70px; }
+.col-avatar { width: 68px; text-align: center; }
+.col-avatar-hdr { padding-left: 24px !important; }
+.col-player { width: auto; }
+.col-words { width: 70px; }
+.col-time { width: 80px; }
 .col-score { width: 130px; }
 
 .labs-pill {
@@ -2306,6 +2339,7 @@ body {
     display: inline-block;
     overflow: hidden;
     text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .text-center { text-align: center; }
@@ -2313,40 +2347,76 @@ body {
 .font-bold { font-weight: 600; }
 .font-mono { font-family: monospace; }
 
-/* Rank Badges */
-.rank-badge {
-    width: 24px;
-    height: 24px;
+/* Rank Badge Overlays */
+.rank-avatar-wrapper {
+    position: relative;
+    width: 44px;
+    height: 44px;
+    margin: 0 auto;
+}
+
+.rank-avatar {
+    width: 44px;
+    height: 44px;
     border-radius: 50%;
-    display: inline-flex;
+    overflow: hidden;
+    border: 2px solid rgba(255, 255, 255, 0.12);
+    box-shadow: var(--shadow-sm);
+    display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 0.8rem;
-    font-weight: 800;
 }
 
-.rank-1 {
+/* Premium borders for top 3 rank cards */
+.rank-tbody-1 .rank-avatar {
+    border-color: #ffd700;
+    box-shadow: 0 0 8px rgba(255, 215, 0, 0.35);
+}
+.rank-tbody-2 .rank-avatar {
+    border-color: #e2e8f0;
+    box-shadow: 0 0 8px rgba(226, 232, 240, 0.25);
+}
+.rank-tbody-3 .rank-avatar {
+    border-color: #cd7f32;
+    box-shadow: 0 0 8px rgba(205, 127, 50, 0.25);
+}
+
+.rank-badge-overlay {
+    position: absolute;
+    bottom: -3px;
+    right: -3px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.65rem;
+    font-weight: 800;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.4);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    z-index: 2;
+}
+
+.rank-badge-overlay.rank-badge-1 {
     background: linear-gradient(135deg, #ffd700 0%, #ffa000 100%);
     color: #0f172a;
-    box-shadow: 0 0 10px rgba(255, 215, 0, 0.4);
 }
 
-.rank-2 {
+.rank-badge-overlay.rank-badge-2 {
     background: linear-gradient(135deg, #e2e8f0 0%, #94a3b8 100%);
     color: #0f172a;
-    box-shadow: 0 0 10px rgba(226, 232, 240, 0.3);
 }
 
-.rank-3 {
+.rank-badge-overlay.rank-badge-3 {
     background: linear-gradient(135deg, #cd7f32 0%, #8b4513 100%);
     color: #fff;
-    box-shadow: 0 0 10px rgba(205, 127, 50, 0.3);
 }
 
-.rank-number {
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: var(--text-muted);
+.rank-badge-overlay.rank-badge-others {
+    background: #1b2336;
+    color: #94a3b8;
+    border-color: rgba(255, 255, 255, 0.08);
 }
 
 .empty-state {
@@ -2497,9 +2567,15 @@ body {
     border: 1px solid rgba(0,210,255,0.15);
     border-radius: var(--radius-lg);
     padding: 12px 20px;
-    margin-bottom: 14px;
+    margin-bottom: -14px;
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
+}
+
+.pnb-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
 }
 
 .pnb-brand {
@@ -2947,7 +3023,7 @@ body {
 .rank-date-sub {
     font-size: 0.72rem;
     color: var(--text-muted);
-    display: none; /* show on desktop only */
+    display: block;
 }
 
 .rank-date-cell {

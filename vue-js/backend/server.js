@@ -88,11 +88,12 @@ const CrosswordWord = mongoose.model('CrosswordWord', crosswordWordSchema);
 // Ranking Schema (ระบบตารางคะแนน)
 const rankingSchema = new mongoose.Schema({
     playerName: { type: String, required: true },
+    playerAvatar: { type: String, default: 'avatar1' }, // avatar key or base64 data URL
     labs: [{ type: String }],
-    labsKey: { type: String, required: true }, // e.g. "animals+fruits" (alphabetically sorted and joined)
+    labsKey: { type: String, required: true },
     wordCount: { type: Number, required: true },
-    time: { type: Number, required: true }, // in seconds
-    score: { type: Number, required: true }, // wordCount / time (words per second)
+    time: { type: Number, required: true },
+    score: { type: Number, required: true },
     createdAt: { type: Date, default: Date.now }
 });
 
@@ -472,7 +473,7 @@ app.get('/api/rankings', async (req, res) => {
 // POST /api/rankings - Submit a new score
 app.post('/api/rankings', async (req, res) => {
     try {
-        const { playerName, labs, wordCount, time } = req.body;
+        const { playerName, playerAvatar, labs, wordCount, time } = req.body;
         if (!playerName || !labs || !Array.isArray(labs) || labs.length === 0 || !wordCount || !time) {
             return res.status(400).json({ success: false, message: 'playerName, labs, wordCount, time are required' });
         }
@@ -482,6 +483,7 @@ app.post('/api/rankings', async (req, res) => {
 
         const newRanking = await Ranking.create({
             playerName: playerName.trim().substring(0, 20),
+            playerAvatar: playerAvatar || 'avatar1',
             labs,
             labsKey,
             wordCount,
@@ -489,7 +491,7 @@ app.post('/api/rankings', async (req, res) => {
             score
         });
 
-        res.status(201).json({ success: true, data: newRanking, message: 'บันทึกคะแนนสำเร็จ!' });
+        res.status(201).json({ success: true, data: newRanking, message: 'Score saved!' });
     } catch (e) {
         res.status(500).json({ success: false, message: e.message });
     }
