@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Web Crossword Game - หมวดการเรียนรู้</title>
+    <title>Crossword Challenge — Word Learning Game</title>
     <!-- Modern Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -15,65 +15,122 @@
     <!-- Vue 3 Global Build CDN -->
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <style>
-        [v-cloak] {
-            display: none !important;
-        }
+        [v-cloak] { display: none !important; }
     </style>
 </head>
 <body>
     <div class="app-container" id="app" v-cloak>
 
-        <!-- Player Mode Layout -->
+        <!-- ===== PLAYER MODE ===== -->
         <div class="player-layout" v-if="viewMode === 'player'">
-            <!-- Game Setup Screen -->
+
+            <!-- ── GAME SETUP SCREEN ── -->
             <div class="game-setup-container" v-if="gameState === 'setup'">
                 <div class="setup-wrapper animate-slide-down">
-                    
-                    <!-- TOP CONTROL BAR -->
+
+                    <!-- ╔══════════════════════════════╗
+                         ║   USER PROFILE NAV BAR       ║
+                         ╚══════════════════════════════╝ -->
+                    <div class="profile-nav-bar">
+                        <!-- Brand -->
+                        <div class="pnb-brand">
+                            <div class="pnb-logo"><i class="fas fa-puzzle-piece"></i></div>
+                            <span class="pnb-title">Crossword<span class="pnb-title-accent">Challenge</span></span>
+                        </div>
+
+                        <!-- Right: user info + actions -->
+                        <div class="pnb-right">
+                            <!-- Guest state -->
+                            <template v-if="!currentUser">
+                                <div class="pnb-avatar-group" @click="openProfileModal" id="guestAvatarBtn">
+                                    <div class="pnb-avatar guest-avatar">
+                                        <span v-html="getAvatarSvg(guestAvatar)"></span>
+                                    </div>
+                                    <div class="pnb-userinfo">
+                                        <span class="pnb-username">{{ guestName || 'Guest' }}</span>
+                                        <span class="pnb-role guest-role">Guest</span>
+                                    </div>
+                                    <i class="fas fa-chevron-down pnb-caret"></i>
+                                </div>
+                                <div class="pnb-auth-btns">
+                                    <button class="btn btn-outline btn-sm" @click="openAuthModal('login')" id="loginBtn">
+                                        <i class="fas fa-sign-in-alt"></i> Log In
+                                    </button>
+                                    <button class="btn btn-primary btn-sm" @click="openAuthModal('register')" id="registerBtn">
+                                        <i class="fas fa-user-plus"></i> Register
+                                    </button>
+                                </div>
+                            </template>
+
+                            <!-- Logged-in state -->
+                            <template v-else>
+                                <div class="pnb-avatar-group" @click="openProfileModal" id="userAvatarBtn">
+                                    <div class="pnb-avatar">
+                                        <span v-html="getAvatarSvg(currentUser.avatar || 'avatar1')"></span>
+                                    </div>
+                                    <div class="pnb-userinfo">
+                                        <span class="pnb-username">{{ currentUser.username }}</span>
+                                        <span class="pnb-role" :class="currentUser.role === 'admin' ? 'admin-role' : 'user-role'">
+                                            {{ currentUser.role === 'admin' ? 'Admin' : 'Player' }}
+                                        </span>
+                                    </div>
+                                    <i class="fas fa-chevron-down pnb-caret"></i>
+                                </div>
+                                <button class="btn btn-outline btn-sm pnb-admin-btn" @click="switchViewMode('admin')" v-if="currentUser.role==='admin'">
+                                    <i class="fas fa-cog"></i> Admin
+                                </button>
+                                <button class="btn btn-sm pnb-logout-btn" @click="logoutPlayer" id="logoutBtn">
+                                    <i class="fas fa-sign-out-alt"></i> Log Out
+                                </button>
+                            </template>
+                        </div>
+                    </div>
+
+                    <!-- ╔══════════════════════════════╗
+                         ║   TOP CONTROL BAR            ║
+                         ╚══════════════════════════════╝ -->
                     <div class="setup-top-bar">
                         <div class="top-bar-left">
                             <div class="setup-icon-small"><i class="fas fa-gamepad"></i></div>
                             <div class="setup-title-group">
-                                <h2>เริ่มต้นเล่นเกม Crossword</h2>
-                                <p class="setup-desc">เลือกหมวดหมู่โจทย์ (Lab) ด้านล่าง และกำหนดจำนวนคำศัพท์เพื่อเริ่มต้นความท้าทาย</p>
+                                <h2>Start Crossword Game</h2>
+                                <p class="setup-desc">Select lab categories below, set word count, then hit Play!</p>
                             </div>
                         </div>
-                        
+
                         <form @submit.prevent="startGame" class="setup-top-form">
                             <div class="top-form-controls">
-                                <!-- Word Count Input -->
                                 <div class="form-group-top" v-if="selectedPlayDirs.length > 0">
-                                    <label for="wordCountInput">จำนวนคำศัพท์สุ่ม: <span class="highlight">{{ playConfig.wordCount }} / {{ maxAvailableWords }} คำ</span></label>
+                                    <label for="wordCountInput">Shuffle count: <span class="highlight">{{ playConfig.wordCount }} / {{ maxAvailableWords }} words</span></label>
                                     <div class="range-wrap-top">
                                         <input type="range" id="wordCountInput" v-model.number="playConfig.wordCount" min="3" :max="Math.max(3, maxAvailableWords)" step="1">
                                     </div>
                                 </div>
                                 <div class="form-group-top flex-1" v-else>
-                                    <span class="select-hint-text"><i class="fas fa-arrow-left"></i> กรุณาเลือกหมวดหมู่โจทย์ที่ต้องการเล่นด้านล่าง</span>
+                                    <span class="select-hint-text"><i class="fas fa-arrow-left"></i> Select a lab category on the left to begin</span>
                                 </div>
-                                
-                                <!-- Start Button -->
                                 <button type="submit" class="btn btn-primary btn-start-game" :disabled="selectedPlayDirs.length === 0">
-                                    <i class="fas fa-play"></i> เริ่มเล่นเกม
+                                    <i class="fas fa-play"></i> Play Game
                                 </button>
                             </div>
                         </form>
                     </div>
 
-                    <!-- TWO COLUMNS GRID -->
+                    <!-- ╔══════════════════════════════╗
+                         ║   TWO-COLUMN GRID            ║
+                         ╚══════════════════════════════╝ -->
                     <div class="setup-grid">
-                        
-                        <!-- Left Column: Labs Selection List -->
+
+                        <!-- Left: Lab Selection -->
                         <div class="setup-column-card left-col">
                             <div class="col-header">
-                                <h3><i class="fas fa-tags"></i> เลือกหมวดหมู่โจทย์ (Lab)</h3>
+                                <h3><i class="fas fa-tags"></i> Select Lab Category</h3>
                                 <span class="selected-badge" v-if="selectedPlayDirs.length > 0">
-                                    เลือกแล้ว {{ selectedPlayDirs.length }} หมวดหมู่
+                                    {{ selectedPlayDirs.length }} selected
                                 </span>
                             </div>
-                            
                             <div class="labs-list-grid">
-                                <div v-for="dir in crosswordDirs" 
+                                <div v-for="dir in crosswordDirs"
                                      :key="dir.name"
                                      class="lab-item-box"
                                      :class="{ 'lab-selected': selectedPlayDirs.includes(dir.name) }"
@@ -87,66 +144,59 @@
                                 </div>
                                 <div v-if="crosswordDirs.length === 0 && !dirsLoading" class="empty-state">
                                     <i class="fas fa-exclamation-triangle"></i>
-                                    <p>ยังไม่มีหมวดหมู่โจทย์ในระบบ</p>
+                                    <p>No lab categories found. Add some in Admin panel.</p>
                                 </div>
                                 <div v-if="dirsLoading" class="empty-state">
                                     <i class="fas fa-spinner fa-spin"></i>
-                                    <p>กำลังโหลดหมวดหมู่...</p>
+                                    <p>Loading categories...</p>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Right Column: User Rankings -->
+                        <!-- Right: Rankings -->
                         <div class="setup-column-card right-col">
                             <div class="col-header justify-between">
-                                <h3><i class="fas fa-trophy"></i> ตารางคะแนน (Rankings)</h3>
-                                
-                                <!-- Filters -->
+                                <h3><i class="fas fa-trophy"></i> Leaderboard</h3>
                                 <div class="rank-filter-tabs">
-                                    <button class="rank-tab-btn" 
-                                            :class="{ active: rankingFilter === 'selected' }" 
+                                    <button class="rank-tab-btn"
+                                            :class="{ active: rankingFilter === 'selected' }"
                                             @click="rankingFilter = 'selected'"
                                             :disabled="selectedPlayDirs.length === 0"
                                             type="button">
-                                        เฉพาะโจทย์ที่เลือก
+                                        Selected Labs
                                     </button>
-                                    <button class="rank-tab-btn" 
-                                            :class="{ active: rankingFilter === 'all' }" 
+                                    <button class="rank-tab-btn"
+                                            :class="{ active: rankingFilter === 'all' }"
                                             @click="rankingFilter = 'all'"
                                             type="button">
-                                        รวมทุกโจทย์
+                                        All Labs
                                     </button>
                                 </div>
                             </div>
-                            
-                            <!-- Rankings List -->
+
                             <div class="ranking-panel">
                                 <div class="loader-placeholder-small" v-if="rankingLoading">
-                                    <i class="fas fa-spinner fa-spin"></i> กำลังโหลดตารางคะแนน...
+                                    <i class="fas fa-spinner fa-spin"></i> Loading rankings...
                                 </div>
-                                
                                 <div v-else class="ranking-table-wrapper">
-                                    <!-- If filter is 'selected' but no selection -->
                                     <div v-if="rankingFilter === 'selected' && selectedPlayDirs.length === 0" class="empty-state">
                                         <i class="fas fa-hand-pointer"></i>
-                                        <p>กรุณาเลือกหมวดหมู่โจทย์ (Lab) ด้านซ้าย เพื่อดูอันดับของกลุ่มนี้</p>
+                                        <p>Select a lab on the left to see its rankings.</p>
                                     </div>
-                                    
-                                    <!-- Empty list -->
                                     <div v-else-if="rankingList.length === 0" class="empty-state">
                                         <i class="far fa-star"></i>
-                                        <p>ยังไม่มีสถิติสำหรับโจทย์กลุ่มนี้ เริ่มเล่นเพื่อบันทึกคะแนนเป็นคนแรก!</p>
+                                        <p>No records yet for this group — be the first to set a score!</p>
                                     </div>
-                                    
                                     <table v-else class="ranking-table">
                                         <thead>
                                             <tr>
-                                                <th class="col-rank">อันดับ</th>
-                                                <th class="col-player">ผู้เล่น</th>
-                                                <th class="col-labs" v-if="rankingFilter === 'all'">โจทย์</th>
-                                                <th class="col-words text-center">คำ</th>
-                                                <th class="col-time text-center">เวลา</th>
-                                                <th class="col-score text-right">ความเร็ว (คำ/วินาที)</th>
+                                                <th class="col-rank">#</th>
+                                                <th class="col-player">Player</th>
+                                                <th class="col-labs" v-if="rankingFilter === 'all'">Labs</th>
+                                                <th class="col-words text-center">Words</th>
+                                                <th class="col-time text-center">Time</th>
+                                                <th class="col-score text-right">Speed (w/s)</th>
+                                                <th class="col-date text-right">Date</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -157,7 +207,12 @@
                                                     <span v-else-if="idx === 2" class="rank-badge rank-3"><i class="fas fa-medal"></i></span>
                                                     <span v-else class="rank-number">{{ idx + 1 }}</span>
                                                 </td>
-                                                <td class="col-player font-bold">{{ rank.playerName }}</td>
+                                                <td class="col-player">
+                                                    <div class="rank-player-cell">
+                                                        <span class="font-bold">{{ rank.playerName }}</span>
+                                                        <span class="rank-date-sub">{{ formatRankDate(rank.createdAt) }}</span>
+                                                    </div>
+                                                </td>
                                                 <td class="col-labs" v-if="rankingFilter === 'all'" :title="rank.labsKey">
                                                     <span class="labs-pill">{{ rank.labsKey }}</span>
                                                 </td>
@@ -166,6 +221,7 @@
                                                 <td class="col-score text-right font-mono text-primary font-bold">
                                                     {{ rank.score.toFixed(3) }} w/s
                                                 </td>
+                                                <td class="col-date text-right rank-date-cell">{{ formatRankDate(rank.createdAt) }}</td>
                                             </tr>
                                         </tbody>
                                     </table>
@@ -173,77 +229,67 @@
                             </div>
                         </div>
 
-                    </div>
-                </div>
-            </div>
+                    </div><!-- /setup-grid -->
+                </div><!-- /setup-wrapper -->
+            </div><!-- /game-setup-container -->
 
-            <!-- Game Playing Screen — Header + Full Canvas -->
+
+            <!-- ── GAME PLAYING SCREEN ── -->
             <div class="game-play-container animate-fade-in" v-else-if="gameState === 'playing' || gameState === 'completed'">
 
-                <!-- Game Header Bar -->
                 <div class="game-hbar">
-                    <!-- Left: back + info -->
                     <div class="game-hbar-left">
-                        <button class="ghb-btn ghb-back" @click="resetGameSetup" title="ย้อนกลับ">
+                        <button class="ghb-btn ghb-back" @click="resetGameSetup" title="Back">
                             <i class="fas fa-arrow-left"></i>
                         </button>
                         <div class="ghb-sep"></div>
                         <div class="ghb-info">
                             <span class="ghb-dir" :title="selectedDirsDisplay"><i class="fas fa-folder-open"></i> {{ selectedDirsDisplay }}</span>
-                            <span class="ghb-count">{{ placedWords.length }}/{{ requestedCount }} คำ</span>
+                            <span class="ghb-count">{{ placedWords.length }}/{{ requestedCount }} words</span>
                         </div>
                     </div>
-
-                    <!-- Center: main action buttons -->
                     <div class="game-hbar-center">
-                        <button class="ghb-btn ghb-clues" @click="showCluesModal = true" title="ดูคำใบ้">
+                        <button class="ghb-btn ghb-clues" @click="showCluesModal = true" title="View Clues">
                             <i class="fas fa-book-open"></i>
-                            <span>คำใบ้</span>
+                            <span>Clues</span>
                         </button>
-
-                        <button class="ghb-btn ghb-fit" @click="zoomReset" title="จัดกึ่งกลาง">
+                        <button class="ghb-btn ghb-fit" @click="zoomReset" title="Center Grid">
                             <i class="fas fa-compress-arrows-alt"></i>
                         </button>
-
-                        <!-- Reveal Toggle -->
                         <button class="ghb-btn ghb-reveal"
                                 :class="{ 'ghb-reveal-on': revealMode }"
                                 @click="toggleRevealMode"
-                                :title="revealMode ? 'ปิดโหมดเฉลย (ดับเบิลคลิกช่องเพื่อเปิดตัวอักษร)' : 'เปิดโหมดเฉลย'">
+                                :title="revealMode ? 'Reveal Mode ON — double-click a cell to reveal' : 'Enable Reveal Mode'">
                             <i class="fas fa-eye"></i>
-                            <span>{{ revealMode ? 'เฉลย ON' : 'เฉลย' }}</span>
+                            <span>{{ revealMode ? 'Reveal ON' : 'Reveal' }}</span>
                         </button>
-
-                        <button class="ghb-btn ghb-reset" @click="resetGuesses" title="ล้างคำตอบ">
+                        <button class="ghb-btn ghb-reset" @click="resetGuesses" title="Clear Answers">
                             <i class="fas fa-undo"></i>
                         </button>
-
-                        <button class="ghb-btn ghb-check" @click="checkAnswers" title="ตรวจคำตอบ">
+                        <button class="ghb-btn ghb-check" @click="checkAnswers" title="Check Answers">
                             <i class="fas fa-check-double"></i>
-                            <span>ตรวจ</span>
+                            <span>Check</span>
                         </button>
                     </div>
-
-                    <!-- Right: empty spacer for balance -->
                     <div class="game-hbar-right"></div>
                 </div>
 
-                <!-- Stats Panel (floating) -->
+                <!-- Stats Panel -->
                 <div class="game-stats-panel">
                     <div class="stats-item">
                         <i class="fas fa-clock"></i>
-                        <span class="stats-label">เวลา</span>
+                        <span class="stats-label">Time</span>
                         <span class="stats-value">{{ timerDisplay }}</span>
                     </div>
                     <div class="stats-divider"></div>
                     <div class="stats-item" :class="{ 'stats-warn': revealCount > 0 }">
                         <i class="fas fa-eye"></i>
-                        <span class="stats-label">เฉลย</span>
+                        <span class="stats-label">Reveals</span>
                         <span class="stats-value">{{ revealCount }}</span>
                     </div>
                 </div>
 
-                <!-- Infinite Canvas Viewport -->
+                <!-- Canvas Viewport -->
                 <div class="canvas-viewport"
                      ref="canvasViewport"
                      @pointerdown="startPanning"
@@ -252,8 +298,6 @@
                      @pointercancel="stopPanning"
                      @wheel.prevent="handleZoom"
                      :style="{ cursor: isDragging ? 'grabbing' : 'grab' }">
-
-                    <!-- Grid transform layer -->
                     <div class="grid-board-outer"
                          :style="{ transform: `translate(${panX}px, ${panY}px) scale(${zoomScale})`, transformOrigin: '0 0' }">
                         <div class="grid-board" :style="gridBoardStyle">
@@ -272,48 +316,40 @@
                                      @pointerdown.stop
                                      @click="focusCell(rIdx, cIdx)"
                                      @dblclick.stop="revealCell(rIdx, cIdx)">
-
-                                     <span class="cell-number" v-if="cell.isActive && cell.number">{{ cell.number }}</span>
-
-                                     <input v-if="cell.isActive"
-                                            :id="'cell-input-' + rIdx + '-' + cIdx"
-                                            type="text"
-                                            maxlength="1"
-                                            v-model="cell.guess"
-                                            @keydown="handleCellKeydown($event, rIdx, cIdx)"
-                                            class="cell-input"
-                                            autocomplete="off">
+                                    <span class="cell-number" v-if="cell.isActive && cell.number">{{ cell.number }}</span>
+                                    <input v-if="cell.isActive"
+                                           :id="'cell-input-' + rIdx + '-' + cIdx"
+                                           type="text" maxlength="1"
+                                           v-model="cell.guess"
+                                           @keydown="handleCellKeydown($event, rIdx, cIdx)"
+                                           class="cell-input" autocomplete="off">
                                 </div>
                             </div>
                         </div>
                     </div>
-
-                    <!-- Pan/Zoom hint -->
                     <div class="canvas-hint">
-                        <i class="fas fa-hand-paper"></i> ลากเพื่อเลื่อน &nbsp;·&nbsp; เลื่อนล้อเมาส์เพื่อซูม
+                        <i class="fas fa-hand-paper"></i> Drag to pan &nbsp;·&nbsp; Scroll to zoom
                         <span v-if="revealMode" class="hint-reveal-mode">
-                            &nbsp;·&nbsp; <i class="fas fa-eye"></i> ดับเบิลคลิกช่องเพื่อเปิดเฉลย
+                            &nbsp;·&nbsp; <i class="fas fa-eye"></i> Double-click a cell to reveal
                         </span>
                     </div>
                 </div>
 
-
-                <!-- Clues Modal Popup -->
+                <!-- Clues Modal -->
                 <transition name="modal-fade">
                     <div class="clues-modal-overlay" v-if="showCluesModal" @click.self="showCluesModal = false">
                         <div class="clues-modal">
                             <div class="clues-modal-header">
-                                <h3><i class="fas fa-book-open"></i> คำใบ้ทั้งหมด</h3>
+                                <h3><i class="fas fa-book-open"></i> All Clues</h3>
                                 <button class="clues-modal-close" @click="showCluesModal = false">
                                     <i class="fas fa-times"></i>
                                 </button>
                             </div>
                             <div class="clues-modal-body">
                                 <div class="clues-col">
-                                    <div class="clues-title"><i class="fas fa-arrow-right"></i> แนวนอน (Across)</div>
+                                    <div class="clues-title"><i class="fas fa-arrow-right"></i> Across</div>
                                     <div class="clues-list">
-                                        <div v-for="clue in acrossClues"
-                                             :key="'ma-'+clue.number"
+                                        <div v-for="clue in acrossClues" :key="'ma-'+clue.number"
                                              class="clue-item"
                                              :class="{ 'clue-active': isClueActive(clue), 'clue-filled': isClueFilled(clue) }"
                                              @click="selectClue(clue); showCluesModal = false">
@@ -321,14 +357,13 @@
                                             <span class="clue-text">{{ clue.clue }}</span>
                                             <span class="clue-length">({{ clue.word.length }})</span>
                                         </div>
-                                        <div v-if="acrossClues.length === 0" class="clues-empty">ไม่มีคำใบ้แนวนอน</div>
+                                        <div v-if="acrossClues.length === 0" class="clues-empty">No across clues</div>
                                     </div>
                                 </div>
                                 <div class="clues-col">
-                                    <div class="clues-title"><i class="fas fa-arrow-down"></i> แนวตั้ง (Down)</div>
+                                    <div class="clues-title"><i class="fas fa-arrow-down"></i> Down</div>
                                     <div class="clues-list">
-                                        <div v-for="clue in downClues"
-                                             :key="'md-'+clue.number"
+                                        <div v-for="clue in downClues" :key="'md-'+clue.number"
                                              class="clue-item"
                                              :class="{ 'clue-active': isClueActive(clue), 'clue-filled': isClueFilled(clue) }"
                                              @click="selectClue(clue); showCluesModal = false">
@@ -336,7 +371,7 @@
                                             <span class="clue-text">{{ clue.clue }}</span>
                                             <span class="clue-length">({{ clue.word.length }})</span>
                                         </div>
-                                        <div v-if="downClues.length === 0" class="clues-empty">ไม่มีคำใบ้แนวตั้ง</div>
+                                        <div v-if="downClues.length === 0" class="clues-empty">No down clues</div>
                                     </div>
                                 </div>
                             </div>
@@ -344,72 +379,68 @@
                     </div>
                 </transition>
 
-            </div>
+            </div><!-- /game-play-container -->
 
-            <!-- Success Overlay -->
+            <!-- ── SUCCESS OVERLAY ── -->
             <div class="success-overlay" v-if="gameState === 'completed'">
                 <div class="success-card animate-slide-down">
                     <div class="success-icon"><i class="fas fa-trophy"></i></div>
-                    <h2>ยินดีด้วย! คุณเล่นสำเร็จแล้ว!</h2>
-                    <p>คุณตอบคำถามถูกต้องครบถ้วนทุกช่องตารางแล้ว</p>
-                    
-                    <!-- Stats summary -->
+                    <h2>Congratulations! Puzzle Solved!</h2>
+                    <p>You filled every cell correctly — amazing work!</p>
+
                     <div class="score-summary-box">
                         <div class="summary-item">
-                            <span class="label">จำนวนคำศัพท์</span>
-                            <span class="val">{{ placedWords.length }} คำ</span>
+                            <span class="label">Words</span>
+                            <span class="val">{{ placedWords.length }}</span>
                         </div>
                         <div class="summary-item">
-                            <span class="label">เวลาที่ใช้</span>
+                            <span class="label">Time</span>
                             <span class="val">{{ timerDisplay }}</span>
                         </div>
                         <div class="summary-item">
-                            <span class="label">ความเร็วในการเล่น</span>
-                            <span class="val text-primary font-bold">{{ (placedWords.length / Math.max(1, timerSeconds)).toFixed(3) }} คำ/วิ</span>
+                            <span class="label">Speed</span>
+                            <span class="val text-primary font-bold">{{ (placedWords.length / Math.max(1, timerSeconds)).toFixed(3) }} w/s</span>
                         </div>
                     </div>
-                    
-                    <!-- Score Submission Form -->
+
                     <div class="rank-submit-form" v-if="!scoreSubmitted">
-                        <h3><i class="fas fa-user-edit"></i> บันทึกสถิติลงตารางคะแนน</h3>
+                        <h3><i class="fas fa-user-edit"></i> Save to Leaderboard</h3>
                         <form @submit.prevent="submitScore">
-                            <div class="form-group" style="text-align: left;">
-                                <label for="playerNameInput">ชื่อผู้เล่น</label>
-                                <input type="text" 
-                                       id="playerNameInput" 
-                                       v-model="rankingForm.playerName" 
-                                       required 
-                                       placeholder="กรอกชื่อของคุณ..." 
+                            <div class="form-group" style="text-align:left;">
+                                <label for="playerNameInput">Player Name</label>
+                                <input type="text" id="playerNameInput"
+                                       v-model="rankingForm.playerName"
+                                       required placeholder="Enter your name..."
                                        maxlength="20"
                                        :disabled="currentUser !== null"
                                        class="form-control-input">
                                 <p class="form-hint" v-if="currentUser">
-                                    <i class="fas fa-user-check"></i> บันทึกคะแนนในชื่อบัญชี {{ currentUser.username }}
+                                    <i class="fas fa-user-check"></i> Saving as <strong>{{ currentUser.username }}</strong>
                                 </p>
                             </div>
                             <button type="submit" class="btn btn-success btn-block" :disabled="submittingScore">
-                                <i class="fas fa-save"></i> {{ submittingScore ? 'กำลังบันทึก...' : 'บันทึกสถิติ' }}
+                                <i class="fas fa-save"></i> {{ submittingScore ? 'Saving...' : 'Save Score' }}
                             </button>
                         </form>
                     </div>
                     <div class="submit-success-msg" v-else>
-                        <i class="fas fa-check-circle text-success" style="font-size: 2.5rem; margin-bottom: 12px; display: block;"></i>
-                        <p class="text-success font-bold" style="font-size: 1.1rem; margin-bottom: 20px;">บันทึกสถิติของคุณเข้าตารางคะแนนเรียบร้อยแล้ว!</p>
+                        <i class="fas fa-check-circle text-success" style="font-size:2.5rem;margin-bottom:12px;display:block;"></i>
+                        <p class="text-success font-bold" style="font-size:1.1rem;margin-bottom:20px;">Score saved to the leaderboard!</p>
                     </div>
 
-                    <div class="success-actions" style="margin-top: 15px;">
+                    <div class="success-actions" style="margin-top:15px;">
                         <button class="btn btn-primary btn-block btn-lg" @click="backToSetupAfterPlay">
-                            <i class="fas fa-redo"></i> กลับหน้าแรกและดูคะแนน
+                            <i class="fas fa-redo"></i> Back to Home & View Rankings
                         </button>
                     </div>
                 </div>
             </div>
-        </div>
 
-        <!-- Admin Mode Layout -->
+        </div><!-- /player-layout -->
+
+
+        <!-- ===== ADMIN MODE ===== -->
         <div class="admin-wrapper" v-if="viewMode === 'admin'">
-
-            <!-- Admin slim header -->
             <header class="admin-hbar">
                 <div class="admin-hbar-brand">
                     <i class="fas fa-layer-group"></i>
@@ -417,7 +448,6 @@
                     <span class="admin-hbar-sub">Nginx + NodeJS + MongoDB + Vue.js</span>
                 </div>
                 <div class="admin-hbar-right">
-                    <!-- Auth widget -->
                     <div v-if="!currentUser">
                         <button class="btn btn-sm btn-outline" @click="switchTab('auth')">
                             <i class="fas fa-sign-in-alt"></i> Login
@@ -433,18 +463,16 @@
                     </div>
                     <div class="ghb-sep" style="margin:0 6px;"></div>
                     <button class="btn btn-sm btn-outline" @click="switchViewMode('player')">
-                        <i class="fas fa-gamepad"></i> กลับหน้าเกม
+                        <i class="fas fa-gamepad"></i> Back to Game
                     </button>
                 </div>
             </header>
 
             <div class="main-layout">
-            <!-- Sidebar Panel -->
             <aside class="app-sidebar">
-                <!-- Navigation -->
                 <nav class="sidebar-nav">
                     <button class="nav-btn" :class="{ active: activeTab === 'crosswords' }" @click="switchTab('crosswords')">
-                        <i class="fas fa-puzzle-piece"></i> จัดการคลังโจทย์
+                        <i class="fas fa-puzzle-piece"></i> Crossword Manager
                     </button>
                     <button class="nav-btn" :class="{ active: activeTab === 'dashboard' }" @click="switchTab('dashboard')">
                         <i class="fas fa-chart-line"></i> Dashboard
@@ -456,8 +484,6 @@
                         <i class="fas fa-user-lock"></i> Auth Settings
                     </button>
                 </nav>
-
-                <!-- Health Check Widget -->
                 <div class="health-widget">
                     <h3>Service Status</h3>
                     <div class="status-list">
@@ -478,108 +504,88 @@
                 </div>
             </aside>
 
-            <!-- Main Content Area -->
             <main class="app-content">
-                
-                <!-- Tab: Crossword Admin Manager -->
+
+                <!-- Crossword Admin -->
                 <section class="tab-content" v-show="activeTab === 'crosswords'">
                     <div class="crud-header">
                         <div class="title-area">
-                            <h2>🧩 จัดการคลังโจทย์อักษรไขว้ (Crossword Manager)</h2>
-                            <p>ผู้ดูแลระบบสามารถสร้างหมวดหมู่โจทย์และลากไฟล์ CSV เพื่อนำเข้าคำศัพท์ได้</p>
+                            <h2>🧩 Crossword Manager</h2>
+                            <p>Create lab categories and drag CSV files to import word sets.</p>
                         </div>
                     </div>
-                    
-                    <!-- Admin Authentication check -->
                     <div class="admin-auth-warning" v-if="!currentUser || currentUser.role !== 'admin'">
                         <div class="warning-box">
                             <i class="fas fa-lock"></i>
-                            <h3>จำเป็นต้องลงชื่อเข้าใช้ในฐานะผู้ดูแลระบบ</h3>
-                            <p>กรุณาลงชื่อเข้าใช้งานด้วยสิทธิ์ผู้ดูแลระบบ (Admin) เพื่อจัดการโจทย์เกม</p>
+                            <h3>Admin Login Required</h3>
+                            <p>Please sign in with an admin account to manage crossword categories.</p>
                             <button class="btn btn-primary" @click="switchTab('auth')">
-                                <i class="fas fa-sign-in-alt"></i> ไปหน้าล็อกอิน
+                                <i class="fas fa-sign-in-alt"></i> Go to Login
                             </button>
                         </div>
                     </div>
-                    
                     <div class="crossword-admin-grid" v-else>
-                        <!-- Left Panel: Directory/Category List -->
                         <div class="admin-card">
-                            <h3><i class="fas fa-folder-plus"></i> สร้างหมวดหมู่ (Directory)</h3>
+                            <h3><i class="fas fa-folder-plus"></i> Create Category (Directory)</h3>
                             <form @submit.prevent="createDirectory" class="inline-form">
                                 <div class="form-group flex-1">
-                                    <input type="text" v-model="newDirName" required placeholder="เช่น network_lv4, vocab_easy">
+                                    <input type="text" v-model="newDirName" required placeholder="e.g. network_lv4, vocab_easy">
                                 </div>
-                                <button type="submit" class="btn btn-primary">สร้าง</button>
+                                <button type="submit" class="btn btn-primary">Create</button>
                             </form>
-                            
                             <hr class="card-divider">
-                            
-                            <h3><i class="fas fa-list"></i> รายการหมวดหมู่ทั้งหมด</h3>
+                            <h3><i class="fas fa-list"></i> All Categories</h3>
                             <div class="dirs-list">
                                 <div class="loader-placeholder" v-if="dirsLoading">
-                                    <i class="fas fa-spinner fa-spin"></i> กำลังโหลด...
+                                    <i class="fas fa-spinner fa-spin"></i> Loading...
                                 </div>
                                 <div class="loader-placeholder" v-else-if="crosswordDirs.length === 0">
-                                    ยังไม่มีหมวดหมู่โจทย์ในระบบ
+                                    No categories found.
                                 </div>
-                                <div v-for="dir in crosswordDirs" :key="dir.name" 
-                                     class="dir-list-item" 
+                                <div v-for="dir in crosswordDirs" :key="dir.name"
+                                     class="dir-list-item"
                                      :class="{ 'dir-selected': selectedAdminDir === dir.name }">
                                     <div class="dir-info" @click="selectAdminDir(dir.name)">
                                         <span class="dir-icon"><i class="fas fa-folder"></i></span>
                                         <span class="dir-name">{{ dir.name }}</span>
                                     </div>
-                                    <button class="btn btn-xs btn-outline btn-danger" @click="deleteDirectory(dir.name)" title="ลบหมวดหมู่นี้">
+                                    <button class="btn btn-xs btn-outline btn-danger" @click="deleteDirectory(dir.name)" title="Delete">
                                         <i class="fas fa-trash"></i>
                                     </button>
                                 </div>
                             </div>
                         </div>
-                        
-                        <!-- Right Panel: Drag & Drop CSV Uploader -->
+
                         <div class="admin-card">
-                            <h3><i class="fas fa-file-upload"></i> อัปโหลดไฟล์โจทย์ (CSV)</h3>
-                            
+                            <h3><i class="fas fa-file-upload"></i> Upload Word File (CSV)</h3>
                             <div class="form-group">
-                                <label>เลือกหมวดหมู่ที่จะนำเข้าข้อมูล</label>
+                                <label>Select target category</label>
                                 <select v-model="uploadTargetDir" class="form-control-select">
-                                    <option value="" disabled>-- กรุณาเลือกหมวดหมู่ --</option>
-                                    <option v-for="dir in crosswordDirs" :key="dir.name" :value="dir.name">
-                                        {{ dir.name }}
-                                    </option>
+                                    <option value="" disabled>-- Select a category --</option>
+                                    <option v-for="dir in crosswordDirs" :key="dir.name" :value="dir.name">{{ dir.name }}</option>
                                 </select>
                             </div>
-                            
-                            <!-- Drag & Drop Zone -->
-                            <div class="drag-drop-zone" 
+                            <div class="drag-drop-zone"
                                  :class="{ 'drag-over': isDragOver }"
                                  @dragover.prevent="onDragOver"
                                  @dragleave.prevent="onDragLeave"
                                  @drop.prevent="onDropFile"
                                  @click="triggerFileInput">
-                                <input type="file" ref="fileInput" @change="onFileSelected" accept=".csv" style="display: none;">
+                                <input type="file" ref="fileInput" @change="onFileSelected" accept=".csv" style="display:none;">
                                 <div class="drag-drop-content">
                                     <i class="fas fa-cloud-upload-alt"></i>
-                                    <p class="title">ลากไฟล์ CSV มาวางที่นี่ หรือคลิกเพื่อเลือกไฟล์</p>
-                                    <p class="subtitle">รูปแบบไฟล์ CSV: คอลัมน์ที่ 1 = คำศัพท์ , คอลัมน์ที่ 2 = คำใบ้</p>
+                                    <p class="title">Drag CSV here or click to browse</p>
+                                    <p class="subtitle">CSV format: Column 1 = Word, Column 2 = Clue</p>
                                 </div>
                             </div>
-                            
-                            <!-- File Info & Upload Preview -->
                             <div v-if="parsedFileWords.length > 0" class="upload-preview-box">
                                 <div class="preview-header">
-                                    <span><i class="fas fa-file-csv"></i> {{ selectedFileName }} ({{ parsedFileWords.length }} คำ)</span>
-                                    <button class="btn btn-xs btn-outline btn-danger" @click="clearParsedFile">ล้างไฟล์</button>
+                                    <span><i class="fas fa-file-csv"></i> {{ selectedFileName }} ({{ parsedFileWords.length }} words)</span>
+                                    <button class="btn btn-xs btn-outline btn-danger" @click="clearParsedFile">Clear</button>
                                 </div>
                                 <div class="preview-scroll">
                                     <table class="preview-table">
-                                        <thead>
-                                            <tr>
-                                                <th>คำศัพท์</th>
-                                                <th>คำใบ้</th>
-                                            </tr>
-                                        </thead>
+                                        <thead><tr><th>Word</th><th>Clue</th></tr></thead>
                                         <tbody>
                                             <tr v-for="(w, idx) in parsedFileWords" :key="idx">
                                                 <td><code>{{ w.word }}</code></td>
@@ -589,67 +595,60 @@
                                     </table>
                                 </div>
                                 <button class="btn btn-success btn-block" @click="submitUploadedWords" :disabled="!uploadTargetDir">
-                                    <i class="fas fa-save"></i> บันทึกข้อมูลลงหมวดหมู่ {{ uploadTargetDir }}
+                                    <i class="fas fa-save"></i> Save {{ parsedFileWords.length }} words to "{{ uploadTargetDir }}"
                                 </button>
                             </div>
                         </div>
                     </div>
                 </section>
-                
-                <!-- Tab: Dashboard -->
+
+                <!-- Dashboard -->
                 <section class="tab-content" v-show="activeTab === 'dashboard'">
                     <div class="welcome-banner">
                         <h2>🚀 Vue.js Dockerized Web Template</h2>
-                        <p>This is a modern reactive fullstack template powered by Nginx, NodeJS (Express), MongoDB, and Vue.js. All services are fully dockerized with hot-reloading configurations enabled.</p>
+                        <p>A modern reactive fullstack template powered by Nginx, NodeJS (Express), MongoDB, and Vue.js. All services are fully dockerized.</p>
                     </div>
-
                     <div class="features-grid">
                         <div class="feature-card">
                             <div class="icon-wrap color-nginx"><i class="fab fa-envira"></i></div>
                             <h3>Nginx Proxy</h3>
-                            <p>Acts as web server serving Vue.js files and acts as reverse proxy, routing <code>/api/*</code> to NodeJS. Listens on host port <code>8080</code>.</p>
+                            <p>Serves Vue.js files and routes <code>/api/*</code> to NodeJS. Port <code>8080</code>.</p>
                         </div>
                         <div class="feature-card">
                             <div class="icon-wrap color-node"><i class="fab fa-node-js"></i></div>
                             <h3>NodeJS Backend</h3>
-                            <p>Scalable Express server running inside Node 18 Alpine. Leverages session tokens and Mongoose to interact with MongoDB.</p>
+                            <p>Express server in Node 18 Alpine. Session tokens + Mongoose for MongoDB.</p>
                         </div>
                         <div class="feature-card">
                             <div class="icon-wrap color-db"><i class="fas fa-database"></i></div>
                             <h3>MongoDB NoSQL</h3>
-                            <p>High performance document database. Holds user profiles and note collections with persistent host volume bindings.</p>
+                            <p>High-performance document database with persistent host volume bindings.</p>
                         </div>
                     </div>
-
                     <div class="guide-box">
                         <h3><i class="fas fa-terminal"></i> Docker Management Commands</h3>
                         <div class="code-terminal">
-                            <div class="terminal-line"><span class="cmd-comment"># Build and spin up the Vue.js stack</span></div>
+                            <div class="terminal-line"><span class="cmd-comment"># Build and start the stack</span></div>
                             <div class="terminal-line"><span class="cmd-run">docker-compose up --build -d</span></div>
-                            
-                            <div class="terminal-line"><span class="cmd-comment"># Stream logs from all 3 services</span></div>
+                            <div class="terminal-line"><span class="cmd-comment"># Stream logs</span></div>
                             <div class="terminal-line"><span class="cmd-run">docker-compose logs -f</span></div>
-                            
-                            <div class="terminal-line"><span class="cmd-comment"># Shut down stack without losing data</span></div>
+                            <div class="terminal-line"><span class="cmd-comment"># Stop without data loss</span></div>
                             <div class="terminal-line"><span class="cmd-run">docker-compose down</span></div>
-
-                            <div class="terminal-line"><span class="cmd-comment"># Complete database reset</span></div>
+                            <div class="terminal-line"><span class="cmd-comment"># Full reset (deletes DB data)</span></div>
                             <div class="terminal-line"><span class="cmd-run">docker-compose down -v</span></div>
                         </div>
                     </div>
                 </section>
 
-                <!-- Tab: Notes CRUD -->
+                <!-- Notes CRUD -->
                 <section class="tab-content" v-show="activeTab === 'notes'">
                     <div class="crud-header">
                         <div class="title-area">
                             <h2>📝 Note Storage CRUD</h2>
-                            <p>Test your MongoDB database read, write, update, and delete operations below.</p>
+                            <p>Test MongoDB read, write, update, and delete operations.</p>
                         </div>
                         <button class="btn btn-primary" @click="showNoteForm()"><i class="fas fa-plus"></i> New Note</button>
                     </div>
-
-                    <!-- Note Form Card (Collapsed by default) -->
                     <div class="form-card" v-if="showForm" id="noteFormCard">
                         <h3>{{ noteForm.id ? 'Edit Note' : 'Create New Note' }}</h3>
                         <form @submit.prevent="saveNote">
@@ -659,41 +658,28 @@
                             </div>
                             <div class="form-group">
                                 <label for="noteContent">Content</label>
-                                <textarea id="noteContent" v-model="noteForm.content" rows="4" required placeholder="Write your note description here..."></textarea>
+                                <textarea id="noteContent" v-model="noteForm.content" rows="4" required placeholder="Write your note here..."></textarea>
                             </div>
                             <div class="form-actions">
                                 <button type="button" class="btn btn-outline" @click="hideNoteForm">Cancel</button>
-                                <button type="submit" class="btn btn-primary">
-                                    {{ noteForm.id ? 'Update Note' : 'Save Note' }}
-                                </button>
+                                <button type="submit" class="btn btn-primary">{{ noteForm.id ? 'Update Note' : 'Save Note' }}</button>
                             </div>
                         </form>
                     </div>
-
-                    <!-- Notes Grid / List -->
                     <div class="notes-grid">
-                        <!-- Loader -->
                         <div class="loader-placeholder" v-if="notesLoading">
                             <i class="fas fa-spinner fa-spin"></i> Loading notes from MongoDB...
                         </div>
-
-                        <!-- Empty State -->
                         <div class="loader-placeholder" v-else-if="currentNotes.length === 0">
-                            <i class="far fa-folder-open" style="font-size: 2rem; margin-bottom: 12px; display: block;"></i>
-                            No notes found in MongoDB. Create the first one!
+                            <i class="far fa-folder-open" style="font-size:2rem;margin-bottom:12px;display:block;"></i>
+                            No notes found. Create the first one!
                         </div>
-
-                        <!-- Notes List -->
                         <div class="note-item" v-for="note in currentNotes" :key="note._id" v-else>
                             <div class="note-header">
                                 <h4>{{ note.title }}</h4>
                                 <div class="note-actions" v-if="canEdit(note)">
-                                    <button class="btn btn-xs btn-outline" @click="editNote(note)" title="Edit Note">
-                                        <i class="fas fa-edit"></i>
-                                    </button>
-                                    <button class="btn btn-xs btn-outline btn-danger" @click="deleteNote(note._id)" title="Delete Note">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
+                                    <button class="btn btn-xs btn-outline" @click="editNote(note)" title="Edit"><i class="fas fa-edit"></i></button>
+                                    <button class="btn btn-xs btn-outline btn-danger" @click="deleteNote(note._id)" title="Delete"><i class="fas fa-trash"></i></button>
                                 </div>
                             </div>
                             <div class="note-body">{{ note.content }}</div>
@@ -705,15 +691,13 @@
                     </div>
                 </section>
 
-                <!-- Tab: Auth Settings -->
+                <!-- Auth Settings -->
                 <section class="tab-content" v-show="activeTab === 'auth'">
                     <div class="auth-section-title">
                         <h2><i class="fas fa-user-shield"></i> Authentication Controller</h2>
-                        <p>Simulate user registration and sessions storage in MongoDB database.</p>
+                        <p>Manage user registration and session storage in MongoDB.</p>
                     </div>
-
                     <div class="auth-grid">
-                        <!-- Login Box -->
                         <div class="auth-card" id="loginCard">
                             <h3><i class="fas fa-sign-in-alt"></i> Login</h3>
                             <form @submit.prevent="handleLogin">
@@ -727,10 +711,8 @@
                                 </div>
                                 <button type="submit" class="btn btn-primary btn-block">Sign In</button>
                             </form>
-                            <p class="auth-hint">Default Account: <code>admin</code> / <code>admin1234</code></p>
+                            <p class="auth-hint">Default: <code>admin</code> / <code>admin1234</code></p>
                         </div>
-
-                        <!-- Register Box -->
                         <div class="auth-card" id="registerCard">
                             <h3><i class="fas fa-user-plus"></i> Register</h3>
                             <form @submit.prevent="handleRegister">
@@ -749,22 +731,163 @@
                 </section>
 
             </main>
-            </div><!-- /main-layout -->
+            </div>
         </div><!-- /admin-wrapper -->
 
-        <!-- App Footer — shown only on setup screen -->
+        <!-- App Footer -->
         <footer class="app-footer" v-if="gameState === 'setup' && viewMode === 'player'">
-            <p>Developed with ❤️ as a ready-to-use Dockerized Vue.js Web Application template.</p>
-            <p class="copyright">&copy; 2026 Template Web Project (Vue.js Edition)</p>
+            <p>Crossword Challenge — Powered by Vue.js + NodeJS + MongoDB</p>
+            <p class="copyright">&copy; 2026 Web Crossword Project</p>
         </footer>
 
-        <!-- Notification Toast -->
+        <!-- Toast -->
         <div id="toast" class="toast" :class="{ hidden: !toast.show }" :style="{ borderColor: toastBorderColor }">
             <span v-html="toast.message"></span>
         </div>
-    </div>
 
-    <!-- Application Code -->
+        <!-- ═══════════════════════════════════════════════
+             PROFILE SETTINGS MODAL
+             ═══════════════════════════════════════════════ -->
+        <transition name="modal-fade">
+            <div class="modal-overlay" v-if="showProfileModal" @click.self="showProfileModal = false">
+                <div class="profile-modal">
+                    <div class="pm-header">
+                        <h3><i class="fas fa-user-circle"></i> Profile Settings</h3>
+                        <button class="pm-close" @click="showProfileModal = false"><i class="fas fa-times"></i></button>
+                    </div>
+
+                    <!-- Current user display -->
+                    <div class="pm-user-display">
+                        <div class="pm-avatar-large">
+                            <span v-html="getAvatarSvg(currentUser ? (currentUser.avatar || 'avatar1') : guestAvatar)"></span>
+                        </div>
+                        <div class="pm-user-text">
+                            <span class="pm-name">{{ currentUser ? currentUser.username : (guestName || 'Guest') }}</span>
+                            <span class="pm-role-badge" :class="currentUser ? (currentUser.role === 'admin' ? 'admin-role' : 'user-role') : 'guest-role'">
+                                {{ currentUser ? (currentUser.role === 'admin' ? 'Admin' : 'Player') : 'Guest' }}
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Guest name input -->
+                    <div class="pm-section" v-if="!currentUser">
+                        <h4><i class="fas fa-signature"></i> Display Name</h4>
+                        <div class="pm-name-form">
+                            <input type="text" v-model="profileForm.guestName" placeholder="Enter display name..." maxlength="20" class="form-control-input">
+                            <button class="btn btn-primary btn-sm" @click="saveGuestName"><i class="fas fa-check"></i> Save</button>
+                        </div>
+                    </div>
+
+                    <!-- Avatar Picker -->
+                    <div class="pm-section">
+                        <h4><i class="fas fa-palette"></i> Choose Avatar</h4>
+                        <div class="avatar-grid">
+                            <div v-for="av in avatarOptions" :key="av"
+                                 class="avatar-option"
+                                 :class="{ 'avatar-active': (currentUser ? (currentUser.avatar || 'avatar1') : guestAvatar) === av }"
+                                 @click="selectAvatar(av)">
+                                <span v-html="getAvatarSvg(av)"></span>
+                            </div>
+                        </div>
+                        <div class="pm-custom-url">
+                            <input type="url" v-model="profileForm.customAvatarUrl" placeholder="Or paste a custom image URL..." class="form-control-input">
+                            <button class="btn btn-outline btn-sm" @click="applyCustomAvatar" :disabled="!profileForm.customAvatarUrl">
+                                <i class="fas fa-link"></i> Apply URL
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Password Change (logged-in only) -->
+                    <div class="pm-section" v-if="currentUser">
+                        <h4><i class="fas fa-key"></i> Change Password</h4>
+                        <form @submit.prevent="changePassword" class="pm-password-form">
+                            <input type="password" v-model="profileForm.currentPassword" placeholder="Current password" class="form-control-input" required>
+                            <input type="password" v-model="profileForm.newPassword" placeholder="New password (min 6 chars)" class="form-control-input" required>
+                            <input type="password" v-model="profileForm.confirmPassword" placeholder="Confirm new password" class="form-control-input" required>
+                            <button type="submit" class="btn btn-warning btn-block" :disabled="changingPassword">
+                                <i class="fas fa-lock"></i> {{ changingPassword ? 'Updating...' : 'Change Password' }}
+                            </button>
+                        </form>
+                    </div>
+
+                    <div class="pm-footer" v-if="currentUser">
+                        <button class="btn btn-danger btn-sm" @click="logoutPlayer; showProfileModal = false">
+                            <i class="fas fa-sign-out-alt"></i> Log Out
+                        </button>
+                    </div>
+                    <div class="pm-footer" v-else>
+                        <button class="btn btn-primary btn-sm" @click="showProfileModal = false; openAuthModal('login')">
+                            <i class="fas fa-sign-in-alt"></i> Log In to save progress
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </transition>
+
+        <!-- ═══════════════════════════════════════════════
+             AUTH MODAL (Login / Register)
+             ═══════════════════════════════════════════════ -->
+        <transition name="modal-fade">
+            <div class="modal-overlay" v-if="showAuthModal" @click.self="showAuthModal = false">
+                <div class="auth-modal">
+                    <div class="am-header">
+                        <div class="am-tabs">
+                            <button class="am-tab" :class="{ active: authModalTab === 'login' }" @click="authModalTab = 'login'">
+                                <i class="fas fa-sign-in-alt"></i> Log In
+                            </button>
+                            <button class="am-tab" :class="{ active: authModalTab === 'register' }" @click="authModalTab = 'register'">
+                                <i class="fas fa-user-plus"></i> Register
+                            </button>
+                        </div>
+                        <button class="pm-close" @click="showAuthModal = false"><i class="fas fa-times"></i></button>
+                    </div>
+
+                    <!-- Login Form -->
+                    <div v-if="authModalTab === 'login'" class="am-body">
+                        <form @submit.prevent="handleLoginModal">
+                            <div class="form-group">
+                                <label>Username</label>
+                                <input type="text" v-model="authForm.loginUsername" required placeholder="admin" class="form-control-input">
+                            </div>
+                            <div class="form-group">
+                                <label>Password</label>
+                                <input type="password" v-model="authForm.loginPassword" required placeholder="••••••••" class="form-control-input">
+                            </div>
+                            <button type="submit" class="btn btn-primary btn-block">
+                                <i class="fas fa-sign-in-alt"></i> Sign In
+                            </button>
+                        </form>
+                        <p class="auth-hint" style="margin-top:14px;">Default: <code>admin</code> / <code>admin1234</code></p>
+                        <p style="text-align:center;margin-top:10px;font-size:0.85rem;color:var(--text-muted);">
+                            Don't have an account? <a href="#" @click.prevent="authModalTab='register'" style="color:var(--primary);">Register here</a>
+                        </p>
+                    </div>
+
+                    <!-- Register Form -->
+                    <div v-if="authModalTab === 'register'" class="am-body">
+                        <form @submit.prevent="handleRegisterModal">
+                            <div class="form-group">
+                                <label>New Username</label>
+                                <input type="text" v-model="authForm.regUsername" required placeholder="Enter username..." class="form-control-input">
+                            </div>
+                            <div class="form-group">
+                                <label>New Password</label>
+                                <input type="password" v-model="authForm.regPassword" required placeholder="Min 6 characters..." class="form-control-input">
+                            </div>
+                            <button type="submit" class="btn btn-success btn-block">
+                                <i class="fas fa-user-plus"></i> Create Account
+                            </button>
+                        </form>
+                        <p style="text-align:center;margin-top:10px;font-size:0.85rem;color:var(--text-muted);">
+                            Already have an account? <a href="#" @click.prevent="authModalTab='login'" style="color:var(--primary);">Log in</a>
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </transition>
+
+    </div><!-- /app-container -->
+
     <script src="app.js"></script>
 </body>
 </html>

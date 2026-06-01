@@ -65,12 +65,32 @@ createApp({
             playerName: ''
         });
 
+        // Profile Modal states
+        const showProfileModal = ref(false);
+        const showAuthModal = ref(false);
+        const authModalTab = ref('login');
+        const changingPassword = ref(false);
+
+        // Guest identity (localStorage-persisted)
+        const guestName = ref(localStorage.getItem('guestName') || '');
+        const guestAvatar = ref(localStorage.getItem('guestAvatar') || 'avatar1');
+
+        const avatarOptions = ['avatar1','avatar2','avatar3','avatar4','avatar5','avatar6'];
+
+        const profileForm = reactive({
+            guestName: guestName.value,
+            customAvatarUrl: '',
+            currentPassword: '',
+            newPassword: '',
+            confirmPassword: ''
+        });
+
         // Prefill ranking name if user is logged in
         Vue.watch(currentUser, (newVal) => {
             if (newVal) {
                 rankingForm.playerName = newVal.username;
             } else {
-                rankingForm.playerName = '';
+                rankingForm.playerName = guestName.value || '';
             }
         }, { immediate: true });
         const placedWords = ref([]); // List of placed words with clues and grid positions
@@ -197,6 +217,171 @@ createApp({
                 'status-pending': status === 'pending',
                 'status-error': status === 'error'
             };
+        };
+
+        // ── Avatar SVG generator ──────────────────────────────
+        const AVATAR_COLORS = [
+            ['#7c3aed','#ede9fe'], ['#db2777','#fce7f3'], ['#0891b2','#cffafe'],
+            ['#d97706','#fef3c7'], ['#059669','#d1fae5'], ['#dc2626','#fee2e2']
+        ];
+        const AVATAR_SYMBOLS = ['😺','🦊','🐧','🦁','🐸','🦄'];
+
+        const getAvatarSvg = (av) => {
+            if (av && av.startsWith('http')) {
+                return `<img src="${av}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" onerror="this.src=''"/>`;
+            }
+            const idx = parseInt((av || 'avatar1').replace('avatar','')) - 1;
+            const safeIdx = Math.max(0, Math.min(5, isNaN(idx) ? 0 : idx));
+            const [bg] = AVATAR_COLORS[safeIdx];
+            const sym = AVATAR_SYMBOLS[safeIdx];
+            return `<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%"><circle cx="20" cy="20" r="20" fill="${bg}"/><text x="20" y="27" text-anchor="middle" font-size="20">${sym}</text></svg>`;
+        };
+
+        const openProfileModal = () => {
+            profileForm.guestName = guestName.value;
+            profileForm.customAvatarUrl = '';
+            profileForm.currentPassword = '';
+            profileForm.newPassword = '';
+            profileForm.confirmPassword = '';
+            showProfileModal.value = true;
+        };
+
+        const openAuthModal = (tab = 'login') => {
+            authModalTab.value = tab;
+            showAuthModal.value = true;
+        };
+
+        const saveGuestName = () => {
+            const name = profileForm.guestName.trim();
+            guestName.value = name;
+            localStorage.setItem('guestName', name);
+            if (!currentUser.value) rankingForm.playerName = name;
+            showToast('✅ Display name saved!', 'success');
+        };
+
+        const selectAvatar = async (av) => {
+            if (currentUser.value) {
+                try {
+                    const res = await fetch(`${API_URL}/auth/update-avatar`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ avatar: av })
+                    });
+                    const data = await res.json();
+                    if (data.success) {
+                        currentUser.value = { ...currentUser.value, avatar: av };
+                        showToast('🎨 Avatar updated!', 'success');
+                    } else {
+                        showToast(`❌ ${data.message}`, 'error');
+                    }
+                } catch(e) {
+                    showToast('❌ Connection error', 'error');
+                }
+            } else {
+                guestAvatar.value = av;
+                localStorage.setItem('guestAvatar', av);
+                showToast('🎨 Avatar updated!', 'success');
+            }
+        };
+
+        const applyCustomAvatar = () => {
+            const url = profileForm.customAvatarUrl.trim();
+            if (!url) return;
+            selectAvatar(url);
+        };
+
+        const changePassword = async () => {
+            if (!profileForm.newPassword || profileForm.newPassword.length < 6) {
+                showToast('❌ New password must be at least 6 characters', 'error'); return;
+            }
+            if (profileForm.newPassword !== profileForm.confirmPassword) {
+                showToast('❌ Passwords do not match', 'error'); return;
+            }
+            changingPassword.value = true;
+            try {
+                const res = await fetch(`${API_URL}/auth/change-password`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        currentPassword: profileForm.currentPassword,
+                        newPassword: profileForm.newPassword
+                    })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showToast('✅ Password changed successfully!', 'success');
+                    profileForm.currentPassword = '';
+                    profileForm.newPassword = '';
+                    profileForm.confirmPassword = '';
+                } else {
+                    showToast(`❌ ${data.message}`, 'error');
+                }
+            } catch(e) {
+                showToast('❌ Connection error', 'error');
+            } finally {
+                changingPassword.value = false;
+            }
+        };
+
+        const handleLoginModal = async () => {
+            const username = authForm.loginUsername.trim();
+            const password = authForm.loginPassword;
+            try {
+                const response = await fetch(`${API_URL}/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    showToast('✅ Logged in successfully!', 'success');
+                    currentUser.value = data.user;
+                    authForm.loginUsername = '';
+                    authForm.loginPassword = '';
+                    showAuthModal.value = false;
+                } else {
+                    showToast(`❌ Login Failed: ${data.message}`, 'error');
+                }
+            } catch (error) {
+                showToast('❌ Server error during login', 'error');
+            }
+        };
+
+        const handleRegisterModal = async () => {
+            const username = authForm.regUsername.trim();
+            const password = authForm.regPassword;
+            try {
+                const response = await fetch(`${API_URL}/auth/register`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    showToast('✅ Account created! You can now log in.', 'success');
+                    authForm.regUsername = '';
+                    authForm.regPassword = '';
+                    authModalTab.value = 'login';
+                } else {
+                    showToast(`❌ Registration Failed: ${data.message}`, 'error');
+                }
+            } catch (error) {
+                showToast('❌ Server error during registration', 'error');
+            }
+        };
+
+        const logoutPlayer = async () => {
+            try {
+                await fetch(`${API_URL}/auth/logout`, { method: 'POST' });
+            } catch(e) {}
+            currentUser.value = null;
+            showToast('🚪 Logged out successfully', 'info');
+        };
+
+        const formatRankDate = (dateStr) => {
+            if (!dateStr) return '';
+            const d = new Date(dateStr);
+            return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
         };
 
         // --- 🌐 Health Monitoring ---
@@ -1333,7 +1518,7 @@ createApp({
         const submitScore = async () => {
             const name = rankingForm.playerName.trim();
             if (!name) {
-                showToast('⚠️ กรุณากรอกชื่อผู้เล่นก่อนบันทึก', 'warning');
+                showToast('⚠️ Please enter your player name before saving', 'warning');
                 return;
             }
             if (selectedPlayDirs.value.length === 0) return;
@@ -1355,13 +1540,13 @@ createApp({
                 const data = await response.json();
 
                 if (data.success) {
-                    showToast('🏆 บันทึกคะแนนของคุณสำเร็จ!', 'success');
+                    showToast('🏆 Score saved to leaderboard!', 'success');
                     scoreSubmitted.value = true;
                 } else {
-                    showToast(`❌ บันทึกคะแนนล้มเหลว: ${data.message}`, 'error');
+                    showToast(`❌ Failed to save score: ${data.message}`, 'error');
                 }
             } catch (e) {
-                showToast('❌ เกิดข้อผิดพลาดในการเชื่อมต่อเพื่อบันทึกคะแนน', 'error');
+                showToast('❌ Connection error while saving score', 'error');
             } finally {
                 submittingScore.value = false;
             }
@@ -1490,7 +1675,28 @@ createApp({
             formatSeconds,
             selectedDirsDisplay,
             submitScore,
-            backToSetupAfterPlay
+            backToSetupAfterPlay,
+            formatRankDate,
+
+            // Profile / Auth
+            showProfileModal,
+            showAuthModal,
+            authModalTab,
+            changingPassword,
+            guestName,
+            guestAvatar,
+            avatarOptions,
+            profileForm,
+            getAvatarSvg,
+            openProfileModal,
+            openAuthModal,
+            saveGuestName,
+            selectAvatar,
+            applyCustomAvatar,
+            changePassword,
+            handleLoginModal,
+            handleRegisterModal,
+            logoutPlayer
         };
     }
 }).mount('#app');

@@ -54,6 +54,7 @@ const userSchema = new mongoose.Schema({
     username: { type: String, unique: true, required: true },
     password: { type: String, required: true },
     role: { type: String, default: 'user' }, // user, admin
+    avatar: { type: String, default: 'avatar1' }, // avatar key: avatar1..avatar6 or custom URL
     createdAt: { type: Date, default: Date.now }
 });
 
@@ -182,7 +183,8 @@ app.post('/api/auth/login', async (req, res) => {
 
         const userData = {
             username: user.username,
-            role: user.role
+            role: user.role,
+            avatar: user.avatar || 'avatar1'
         };
 
         // Set session
@@ -206,11 +208,46 @@ app.post('/api/auth/logout', (req, res) => {
 });
 
 // 5.5 Authentication: Profile (ดึงข้อมูลผู้ล็อกอินปัจจุบัน)
-app.get('/api/auth/profile', (req, res) => {
+app.get('/api/auth/profile', async (req, res) => {
     if (req.session.user) {
+        // Re-fetch fresh avatar from DB
+        try {
+            const user = await User.findOne({ username: req.session.user.username });
+            if (user) req.session.user.avatar = user.avatar || 'avatar1';
+        } catch(e) {}
         res.json({ success: true, authenticated: true, user: req.session.user });
     } else {
         res.json({ success: true, authenticated: false, user: null });
+    }
+});
+
+// Update Avatar
+app.post('/api/auth/update-avatar', async (req, res) => {
+    if (!req.session.user) return res.status(401).json({ success: false, message: 'Not authenticated' });
+    try {
+        const { avatar } = req.body;
+        if (!avatar) return res.status(400).json({ success: false, message: 'Avatar is required' });
+        await User.updateOne({ username: req.session.user.username }, { avatar });
+        req.session.user.avatar = avatar;
+        res.json({ success: true, message: 'Avatar updated!' });
+    } catch(e) {
+        res.status(500).json({ success: false, message: e.message });
+    }
+});
+
+// Change Password
+app.post('/api/auth/change-password', async (req, res) => {
+    if (!req.session.user) return res.status(401).json({ success: false, message: 'Not authenticated' });
+    try {
+        const { currentPassword, newPassword } = req.body;
+        if (!currentPassword || !newPassword) return res.status(400).json({ success: false, message: 'Both current and new password are required' });
+        if (newPassword.length < 6) return res.status(400).json({ success: false, message: 'New password must be at least 6 characters' });
+        const user = await User.findOne({ username: req.session.user.username, password: currentPassword });
+        if (!user) return res.status(401).json({ success: false, message: 'Current password is incorrect' });
+        await User.updateOne({ username: req.session.user.username }, { password: newPassword });
+        res.json({ success: true, message: 'Password changed successfully!' });
+    } catch(e) {
+        res.status(500).json({ success: false, message: e.message });
     }
 });
 
