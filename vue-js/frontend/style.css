@@ -1564,6 +1564,33 @@ body {
 .game-hbar-center { flex: 0 0 auto; }
 .game-hbar-right { flex: 1; justify-content: flex-end; }
 
+/* 2nd Language Badge in Header */
+.second-lang-badge {
+    background: linear-gradient(135deg, rgba(0, 210, 255, 0.1) 0%, rgba(0, 210, 255, 0.2) 100%);
+    border: 1px solid rgba(0, 210, 255, 0.4);
+    color: var(--primary);
+    padding: 6px 12px;
+    border-radius: var(--radius-sm);
+    font-size: 0.82rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    box-shadow: 0 0 10px rgba(0, 210, 255, 0.1);
+    animation: second-lang-pulse 2s infinite alternate;
+}
+
+@keyframes second-lang-pulse {
+    0% {
+        box-shadow: 0 0 5px rgba(0, 210, 255, 0.1);
+        border-color: rgba(0, 210, 255, 0.3);
+    }
+    100% {
+        box-shadow: 0 0 15px rgba(0, 210, 255, 0.3);
+        border-color: rgba(0, 210, 255, 0.6);
+    }
+}
+
 /* Separator */
 .ghb-sep {
     width: 1px;

@@ -484,6 +484,8 @@ createApp({
                 requestedCount.value = playConfig.wordCount;
                 
                 // Reset clue flip states
+                useSecondLang.value = false;
+                hasOpenedSecondLang.value = false;
                 for (const key in flippedClues) {
                     delete flippedClues[key];
                 }
@@ -901,7 +903,7 @@ createApp({
             showToast('🔄 Answers cleared', 'info');
         };
 
-        const resetGameSetup = () => {
+         const resetGameSetup = () => {
             gameState.value = 'setup';
             placedWords.value = [];
             gridCells.value = [];
@@ -914,6 +916,11 @@ createApp({
             zoomScale.value = 1.0;
             revealMode.value = false;
             revealCount.value = 0;
+            useSecondLang.value = false;
+            hasOpenedSecondLang.value = false;
+            for (const key in flippedClues) {
+                delete flippedClues[key];
+            }
             stopTimer();
             timerSeconds.value = 0;
         };
@@ -1046,7 +1053,14 @@ createApp({
                 showToast('🔒 Please enable "2nd Language Clues" toggle first!', 'warning');
                 return;
             }
+            if (!clue.clue2 || clue.clue2.trim() === '') {
+                showToast('No 2nd language', 'warning');
+                return;
+            }
             flippedClues[clue.id] = !flippedClues[clue.id];
+            if (flippedClues[clue.id]) {
+                hasOpenedSecondLang.value = true;
+            }
         };
 
         // Active clue computed property
@@ -1329,6 +1343,8 @@ createApp({
 
             // 2nd Language Features
             useSecondLang,
+            leaderboardFilterSecondLang,
+            hasOpenedSecondLang,
             flippedClues,
             handleClueClick,
             activeClue,

@@ -96,13 +96,6 @@
                     </div>
                     <form @submit.prevent="startGame" class="setup-top-form">
                         <div class="top-form-controls">
-                            <!-- Toggle switch for second language state before start -->
-                            <div class="form-group-top second-lang-setup-toggle">
-                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none;">
-                                    <input type="checkbox" v-model="useSecondLang" style="width: 16px; height: 16px; accent-color: var(--primary);">
-                                    <span>2nd Language Clues</span>
-                                </label>
-                            </div>
                             <div class="form-group-top" v-if="selectedPlayDirs.length > 0">
                                 <label for="wordCountInput">Shuffle count: <span class="highlight">{{ playConfig.wordCount }} / {{ maxAvailableWords }} words</span></label>
                                 <div class="range-wrap-top">
@@ -160,20 +153,26 @@
                     <div class="setup-column-card right-col">
                         <div class="col-header justify-between">
                             <h3><i class="fas fa-trophy"></i> Leaderboard</h3>
-                            <div class="rank-filter-tabs">
-                                <button class="rank-tab-btn"
-                                        :class="{ active: rankingFilter === 'selected' }"
-                                        @click="rankingFilter = 'selected'"
-                                        :disabled="selectedPlayDirs.length === 0"
-                                        type="button">
-                                    Selected Labs
-                                </button>
-                                <button class="rank-tab-btn"
-                                        :class="{ active: rankingFilter === 'all' }"
-                                        @click="rankingFilter = 'all'"
-                                        type="button">
-                                    All Labs
-                                </button>
+                            <div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
+                                <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; user-select: none; font-size: 0.85rem; color: var(--text-muted);">
+                                    <input type="checkbox" v-model="leaderboardFilterSecondLang" style="width: 15px; height: 15px; accent-color: var(--primary);">
+                                    <span>2nd Language Clues</span>
+                                </label>
+                                <div class="rank-filter-tabs">
+                                    <button class="rank-tab-btn"
+                                            :class="{ active: rankingFilter === 'selected' }"
+                                            @click="rankingFilter = 'selected'"
+                                            :disabled="selectedPlayDirs.length === 0"
+                                            type="button">
+                                        Selected Labs
+                                    </button>
+                                    <button class="rank-tab-btn"
+                                            :class="{ active: rankingFilter === 'all' }"
+                                            @click="rankingFilter = 'all'"
+                                            type="button">
+                                        All Labs
+                                    </button>
+                                </div>
                             </div>
                         </div>
 
@@ -278,7 +277,11 @@
                         <i class="fas fa-check-double"></i><span>Check</span>
                     </button>
                 </div>
-                <div class="game-hbar-right"></div>
+                <div class="game-hbar-right">
+                    <span v-if="hasOpenedSecondLang" class="second-lang-badge animate-fade-in">
+                        <i class="fas fa-language"></i> เกมนี้ถูกเป็นภาษาที่ 2 แล้ว
+                    </span>
+                </div>
             </div>
 
             <div class="game-stats-panel"
@@ -312,7 +315,7 @@
                             </span>
                             <span class="clue-banner-text">{{ activeClue.clue }}</span>
                             <span class="clue-banner-len">({{ activeClue.word.length }} letters)</span>
-                            <span class="flip-hint-badge"><i class="fas fa-sync"></i> Click to flip</span>
+                            <span class="flip-hint-badge" v-if="activeClue.clue2"><i class="fas fa-sync"></i> Click to flip</span>
                         </div>
                         <div class="clue-card-back active-clue-banner">
                             <span class="clue-dir-badge">
@@ -321,7 +324,7 @@
                             </span>
                             <span class="clue-banner-text clue2-highlight">{{ activeClue.clue2 || activeClue.clue }}</span>
                             <span class="clue-banner-len">({{ activeClue.word.length }} letters)</span>
-                            <span class="flip-hint-badge"><i class="fas fa-sync"></i> Click to flip</span>
+                            <span class="flip-hint-badge" v-if="activeClue.clue2"><i class="fas fa-sync"></i> Click to flip</span>
                         </div>
                     </div>
                 </div>
