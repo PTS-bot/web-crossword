@@ -571,7 +571,7 @@ app.post('/api/admin/seed-mock-data', checkAdmin, async (req, res) => {
 // GET /api/rankings - Get top 50 rankings, optionally filtered by labsKey
 app.get('/api/rankings', async (req, res) => {
     try {
-        const { labsKey, onlySecondLang } = req.query;
+        const { labsKey, onlySecondLang, showGuests } = req.query;
         let query = {};
         
         const isSecondLang = onlySecondLang === 'true';
@@ -588,6 +588,10 @@ app.get('/api/rankings', async (req, res) => {
                 // Match anything that does NOT start with (2)
                 query.labsKey = { $regex: /^(?!\(2\))/ };
             }
+        }
+        
+        if (showGuests === 'false') {
+            query.playerName = { $regex: /^(?!Guest_)/ };
         }
         
         const rankings = await Ranking.find(query).sort({ score: -1 }).limit(50);

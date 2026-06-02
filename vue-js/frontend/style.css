@@ -1697,11 +1697,22 @@ body {
 }
 .ghb-clues:hover { background: rgba(0, 210, 255, 0.2); }
 
-.ghb-reset {
-    border-color: rgba(255, 179, 0, 0.3);
-    color: var(--warning);
+.ghb-lang-toggle {
+    border-color: rgba(0, 210, 255, 0.2);
+    color: var(--text-muted);
 }
-.ghb-reset:hover { background: rgba(255, 179, 0, 0.12); }
+.ghb-lang-toggle:hover {
+    background: rgba(0, 210, 255, 0.08);
+}
+.ghb-lang-toggle.ghb-lang-on {
+    background: rgba(0, 210, 255, 0.15);
+    border-color: rgba(0, 210, 255, 0.4);
+    color: var(--primary);
+    font-weight: 600;
+}
+.ghb-lang-toggle.ghb-lang-on:hover {
+    background: rgba(0, 210, 255, 0.25);
+}
 
 .ghb-check {
     background: rgba(0, 230, 118, 0.1);
@@ -1743,13 +1754,27 @@ body {
 .canvas-hint {
     position: absolute;
     bottom: 14px;
-    left: 50%;
-    transform: translateX(-50%);
-    font-size: 0.75rem;
-    color: rgba(255, 255, 255, 0.25);
+    left: 20px;
+    right: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.73rem;
+    color: rgba(255, 255, 255, 0.22);
     pointer-events: none;
     white-space: nowrap;
     letter-spacing: 0.03em;
+}
+.canvas-hint-left {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+}
+.canvas-hint-right {
+    font-weight: 500;
+    text-transform: uppercase;
+    font-size: 0.65rem;
+    letter-spacing: 0.5px;
 }
 .canvas-hint i { margin-right: 5px; }
 
@@ -2210,7 +2235,7 @@ body {
     display: grid;
     grid-template-columns: 1fr 1.2fr;
     gap: 24px;
-    align-items: start;
+    align-items: stretch;
 }
 
 .setup-column-card {
@@ -3838,6 +3863,20 @@ body {
 /* Extra Setup screen layout adjustments */
 .second-lang-setup-toggle {
     margin-right: 12px;
+}
+
+.credit-watermark {
+    text-align: center;
+    font-size: 0.6rem;
+    color: rgba(255, 255, 255, 0.25);
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    font-weight: 500;
+    margin-top: auto;
+    margin-bottom: -14px;
+    padding-top: 10px;
+    pointer-events: none;
+    user-select: none;
 }
 
 

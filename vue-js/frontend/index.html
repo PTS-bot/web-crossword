@@ -155,10 +155,16 @@
                         <div class="col-header justify-between">
                             <h3><i class="fas fa-trophy"></i> Leaderboard</h3>
                             <div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
-                                <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; user-select: none; font-size: 0.85rem; color: var(--text-muted);">
-                                    <input type="checkbox" v-model="leaderboardFilterSecondLang" style="width: 15px; height: 15px; accent-color: var(--primary);">
-                                    <span>2nd Language Clues</span>
-                                </label>
+                                <div style="display: flex; flex-direction: column; gap: 4px;">
+                                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; user-select: none; font-size: 0.85rem; color: var(--text-muted);">
+                                        <input type="checkbox" v-model="leaderboardFilterSecondLang" style="width: 15px; height: 15px; accent-color: var(--primary);">
+                                        <span>2nd Language Clues</span>
+                                    </label>
+                                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; user-select: none; font-size: 0.85rem; color: var(--text-muted);">
+                                        <input type="checkbox" v-model="leaderboardShowGuests" style="width: 15px; height: 15px; accent-color: var(--primary);">
+                                        <span>Show Guests</span>
+                                    </label>
+                                </div>
                                 <div class="rank-filter-tabs">
                                     <button class="rank-tab-btn"
                                             :class="{ active: rankingFilter === 'selected' }"
@@ -237,6 +243,7 @@
                                 </table>
                             </div>
                         </div>
+                        <div class="credit-watermark">Designed and Developed by P.T.Sridee</div>
                     </div>
 
                 </div><!-- /setup-grid -->
@@ -261,9 +268,6 @@
                     <button class="ghb-btn ghb-clues" @click="showCluesModal = true" title="View Clues">
                         <i class="fas fa-book-open"></i><span>Clues</span>
                     </button>
-                    <button class="ghb-btn ghb-fit" @click="zoomReset" title="Center Grid">
-                        <i class="fas fa-compress-arrows-alt"></i>
-                    </button>
                     <button class="ghb-btn ghb-reveal"
                             :class="{ 'ghb-reveal-on': revealMode }"
                             @click="toggleRevealMode"
@@ -271,17 +275,18 @@
                         <i class="fas fa-eye"></i>
                         <span>{{ revealMode ? 'Reveal ON' : 'Reveal' }}</span>
                     </button>
-                    <button class="ghb-btn ghb-reset" @click="resetGuesses" title="Clear Answers">
-                        <i class="fas fa-undo"></i>
-                    </button>
-                    <button class="ghb-btn ghb-check" @click="checkAnswers" title="Check Answers">
-                        <i class="fas fa-check-double"></i><span>Check</span>
+                    <button class="ghb-btn ghb-lang-toggle"
+                            :class="{ 'ghb-lang-on': useSecondLang }"
+                            @click="useSecondLang = !useSecondLang"
+                            title="Toggle 2nd Language Clues">
+                        <i class="fas fa-language"></i>
+                        <span>2nd Lang Clues</span>
                     </button>
                 </div>
                 <div class="game-hbar-right">
-                    <span v-if="hasOpenedSecondLang" class="second-lang-badge animate-fade-in">
-                        <i class="fas fa-language"></i> เกมนี้อยู่ในหมวดหลายภาษา
-                    </span>
+                    <button class="ghb-btn ghb-check" @click="checkAnswers" title="Check Answers">
+                        <i class="fas fa-check-double"></i><span>Check</span>
+                    </button>
                 </div>
             </div>
 
@@ -363,16 +368,25 @@
                                        type="text" maxlength="1"
                                        v-model="cell.guess"
                                        @keydown="handleCellKeydown($event, rIdx, cIdx)"
-                                       class="cell-input" autocomplete="off">
+                                       class="cell-input" :readonly="cell.revealed" autocomplete="off">
                             </div>
                         </div>
                     </div>
                 </div>
                 <div class="canvas-hint">
-                    <i class="fas fa-hand-paper"></i> Drag to pan &nbsp;·&nbsp; Scroll to zoom
-                    <span v-if="revealMode" class="hint-reveal-mode">
-                        &nbsp;·&nbsp; <i class="fas fa-eye"></i> Double-click a cell to reveal
-                    </span>
+                    <div class="canvas-hint-left">
+                        <span><i class="fas fa-hand-paper"></i> Drag to pan (ลากเพื่อเลื่อน)</span>
+                        <span>&nbsp;·&nbsp; <i class="fas fa-search-plus"></i> Scroll to zoom (หมุนลูกกลิ้งเพื่อย่อ/ขยาย)</span>
+                        <span v-if="revealMode" class="hint-reveal-mode">
+                            &nbsp;·&nbsp; <i class="fas fa-eye"></i> Double-click a cell to reveal (ดับเบิ้ลคลิกเพื่อเฉลยตัวอักษร)
+                        </span>
+                        <span v-if="hasOpenedSecondLang" class="hint-multilang animate-fade-in" style="color: var(--primary);">
+                            &nbsp;·&nbsp; <i class="fas fa-language"></i> Multilingual Mode (เกมนี้อยู่ในหมวดหลายภาษา)
+                        </span>
+                    </div>
+                    <div class="canvas-hint-right">
+                        Designed and Developed by P.T.Sridee
+                    </div>
                 </div>
             </div>
 
@@ -381,10 +395,15 @@
                 <div class="clues-modal-overlay" v-if="showCluesModal" @click.self="showCluesModal = false">
                     <div class="clues-modal">
                         <div class="clues-modal-header">
-                            <!-- Left: Close button -->
-                            <button class="clues-modal-close" @click="showCluesModal = false">
-                                <i class="fas fa-times"></i>
-                            </button>
+                            <!-- Left: Close & Center Grid buttons -->
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                <button class="clues-modal-close" @click="showCluesModal = false">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                                <button class="ghb-btn ghb-fit" @click="zoomReset(); showCluesModal = false" title="Center Grid" style="padding: 4px 8px; font-size: 0.75rem;">
+                                    <i class="fas fa-compress-arrows-alt"></i><span>Center Grid</span>
+                                </button>
+                            </div>
                             
                             <!-- Center: Toggle switch for second language -->
                             <div class="clues-modal-header-toggle">
@@ -561,12 +580,12 @@
                 </div>
 
                 <!-- Tabs inside Profile Modal -->
-                <div class="profile-modal-tabs" style="display:flex; border-bottom:1px solid var(--border-color); padding:0 22px;">
-                    <button class="profile-tab-btn" :class="{ active: profileActiveTab === 'settings' }" @click="switchProfileTab('settings')">
-                        <i class="fas fa-cog"></i> Settings
-                    </button>
+                <div class="profile-modal-tabs" v-if="currentUser" style="display:flex; border-bottom:1px solid var(--border-color); padding:0 22px;">
                     <button class="profile-tab-btn" :class="{ active: profileActiveTab === 'dashboard' }" @click="switchProfileTab('dashboard')">
                         <i class="fas fa-chart-line"></i> Performance
+                    </button>
+                    <button class="profile-tab-btn" :class="{ active: profileActiveTab === 'settings' }" @click="switchProfileTab('settings')">
+                        <i class="fas fa-cog"></i> Settings
                     </button>
                 </div>
 

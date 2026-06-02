@@ -14,6 +14,7 @@ createApp({
         const revealCount = ref(0);      // how many cells have been revealed
         const useSecondLang = ref(false); // second language mode (safety switch inside game)
         const leaderboardFilterSecondLang = ref(false); // filters rankings for (2) games
+        const leaderboardShowGuests = ref(true); // show guest players on the leaderboard
         const hasOpenedSecondLang = ref(false); // tracks if user flipped at least one clue
         const flippedClues = reactive({}); // tracks individual flipped clues: { [clueId]: boolean }
 
@@ -63,7 +64,7 @@ createApp({
         const changingPassword = ref(false);
 
         // Profile Dashboard States
-        const profileActiveTab = ref('settings');
+        const profileActiveTab = ref('dashboard');
         const profileSelectedMetric = ref('score');
         const myScores = ref([]);
         const allScores = ref([]);
@@ -157,6 +158,7 @@ createApp({
             // Build group average per round
             const perUserScores = {};
             activeAllScores.forEach(s => {
+                if (s.playerName && s.playerName.startsWith('Guest_')) return;
                 if (!perUserScores[s.playerName]) perUserScores[s.playerName] = [];
                 const val = s[metricKey] !== undefined ? s[metricKey] : 0;
                 perUserScores[s.playerName].push(val);
@@ -443,8 +445,14 @@ createApp({
             profileForm.currentPassword = '';
             profileForm.newPassword = '';
             profileForm.confirmPassword = '';
-            profileActiveTab.value = 'settings';
+            profileActiveTab.value = currentUser.value ? 'dashboard' : 'settings';
             showProfileModal.value = true;
+            if (currentUser.value) {
+                fetchProfileDashboardData().then(async () => {
+                    await nextTick();
+                    updateProfileChart();
+                });
+            }
         };
 
         const openAuthModal = (tab = 'login') => {
@@ -665,8 +673,8 @@ createApp({
             onSelectedDirsChange();
         };
 
-        // Watch for selected directories, filter tabs, or language filters to refresh rankings
-        watch([rankingFilter, leaderboardFilterSecondLang], () => {
+        // Watch for selected directories, filter tabs, language filters, or guest toggles to refresh rankings
+        watch([rankingFilter, leaderboardFilterSecondLang, leaderboardShowGuests], () => {
             fetchRankings();
         });
 
@@ -1186,12 +1194,21 @@ createApp({
             if (!cell || !cell.isActive) return;
 
             if (activeRow.value === r && activeCol.value === c) {
-                activeDirection.value = (activeDirection.value === 'across') ? 'down' : 'across';
+                // Only toggle direction if the cell belongs to both an across and a down word
+                if (cell.words && cell.words.length > 0) {
+                    const wordIds = cell.words;
+                    const matchingWords = placedWords.value.filter(p => wordIds.includes(p.id));
+                    const hasAcross = matchingWords.some(p => p.direction === 'across');
+                    const hasDown = matchingWords.some(p => p.direction === 'down');
+                    if (hasAcross && hasDown) {
+                        activeDirection.value = (activeDirection.value === 'across') ? 'down' : 'across';
+                    }
+                }
             } else {
                 activeRow.value = r;
                 activeCol.value = c;
                 
-                if (cell.words.length > 0) {
+                if (cell.words && cell.words.length > 0) {
                     const wordIds = cell.words;
                     const matchingWords = placedWords.value.filter(p => wordIds.includes(p.id));
                     const hasCurrentDirection = matchingWords.some(p => p.direction === activeDirection.value);
@@ -1330,8 +1347,10 @@ createApp({
             if (key === 'Backspace') {
                 e.preventDefault();
                 const cell = gridCells.value[r][c];
-                cell.guess = '';
-                cell.checked = false;
+                if (!cell.revealed) {
+                    cell.guess = '';
+                    cell.checked = false;
+                }
 
                 let nextR = (activeDirection.value === 'down') ? r - 1 : r;
                 let nextC = (activeDirection.value === 'across') ? c - 1 : c;
@@ -1345,8 +1364,10 @@ createApp({
             if (key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
                 e.preventDefault();
                 const cell = gridCells.value[r][c];
-                cell.guess = key.toUpperCase();
-                cell.checked = false;
+                if (!cell.revealed) {
+                    cell.guess = key.toUpperCase();
+                    cell.checked = false;
+                }
 
                 let nextR = (activeDirection.value === 'down') ? r + 1 : r;
                 let nextC = (activeDirection.value === 'across') ? c + 1 : c;
@@ -1387,6 +1408,8 @@ createApp({
                     params.append('onlySecondLang', 'false');
                 }
                 
+                params.append('showGuests', leaderboardShowGuests.value ? 'true' : 'false');
+                
                 url += `?${params.toString()}`;
                 
                 const response = await fetch(url, { credentials: 'include' });
@@ -1402,12 +1425,14 @@ createApp({
         };
 
         const submitScore = async () => {
-            const name = rankingForm.playerName.trim();
-            if (!name) {
+            const rawName = rankingForm.playerName.trim();
+            if (!rawName) {
                 showToast('⚠️ Please enter your player name before saving', 'warning');
                 return;
             }
             if (selectedPlayDirs.value.length === 0) return;
+
+            const name = currentUser.value ? rawName : `Guest_${rawName}`;
 
             submittingScore.value = true;
             try {
@@ -1569,6 +1594,7 @@ createApp({
             // 2nd Language Features
             useSecondLang,
             leaderboardFilterSecondLang,
+            leaderboardShowGuests,
             hasOpenedSecondLang,
             flippedClues,
             handleClueClick,
