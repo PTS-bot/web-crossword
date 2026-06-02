@@ -25,6 +25,23 @@
                 <i class="fas fa-layer-group"></i>
                 <span>Admin Panel</span>
             </div>
+            
+            <!-- Header Navigation Bar -->
+            <div class="admin-hbar-nav">
+                <a class="hbar-nav-btn" href="admin.html#crosswords">
+                    <i class="fas fa-puzzle-piece"></i> Crossword Manager
+                </a>
+                <a class="hbar-nav-btn active" href="dashboard.html">
+                    <i class="fas fa-chart-line"></i> Dashboard
+                </a>
+                <a class="hbar-nav-btn" href="admin.html#notes">
+                    <i class="fas fa-sticky-note"></i> Notes CRUD (DB Test)
+                </a>
+                <a class="hbar-nav-btn" href="admin.html#auth">
+                    <i class="fas fa-user-lock"></i> Auth Settings
+                </a>
+            </div>
+
             <div class="admin-hbar-right">
                 <div v-if="!currentUser">
                     <a class="btn btn-sm btn-outline" href="admin.html#auth">
@@ -46,41 +63,6 @@
             </div>
         </header>
         <div class="main-layout">
-            <aside class="app-sidebar">
-                <nav class="sidebar-nav">
-                    <a class="nav-btn" href="admin.html#crosswords">
-                        <i class="fas fa-puzzle-piece"></i> Crossword Manager
-                    </a>
-                    <a class="nav-btn active" href="dashboard.html">
-                        <i class="fas fa-chart-line"></i> Dashboard
-                    </a>
-                    <a class="nav-btn" href="admin.html#notes">
-                        <i class="fas fa-sticky-note"></i> Notes CRUD (DB Test)
-                    </a>
-                    <a class="nav-btn" href="admin.html#auth">
-                        <i class="fas fa-user-lock"></i> Auth Settings
-                    </a>
-                </nav>
-                <div class="health-widget">
-                    <h3>Service Status</h3>
-                    <div class="status-list">
-                        <div class="status-item">
-                            <span class="label">Nginx (Web Proxy)</span>
-                            <span class="status-dot" :class="statusClass(serviceStatus.nginx)"></span>
-                        </div>
-                        <div class="status-item">
-                            <span class="label">NodeJS (Backend)</span>
-                            <span class="status-dot" :class="statusClass(serviceStatus.backend)"></span>
-                        </div>
-                        <div class="status-item">
-                            <span class="label">MongoDB (Database)</span>
-                            <span class="status-dot" :class="statusClass(serviceStatus.database)"></span>
-                        </div>
-                    </div>
-                    <button class="btn btn-block btn-sm" @click="checkHealth"><i class="fas fa-sync-alt"></i> Refresh Status</button>
-                </div>
-            </aside>
-
             <main class="app-content">
                 <!-- Check Admin authentication -->
                 <div class="admin-auth-warning" v-if="!currentUser || currentUser.role !== 'admin'">
@@ -236,6 +218,52 @@
                                             The dashed purple line displays the group average of all users currently filtered in the search.
                                         </p>
                                     </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Right Panel: Labs List -->
+                        <div class="dashboard-sidebar-card">
+                            <div class="sidebar-search-header">
+                                <h3><i class="fas fa-folder"></i> Labs List</h3>
+                                <div class="search-input-wrapper">
+                                    <i class="fas fa-search search-icon"></i>
+                                    <input type="text" 
+                                           v-model="dashboardLabSearchQuery" 
+                                           placeholder="Search lab..." 
+                                           class="dashboard-search-input">
+                                </div>
+                                <div style="margin-top: 10px; display: flex; align-items: center; gap: 8px;">
+                                    <input type="checkbox" id="dashboardOnlySecondLangCheckbox" v-model="dashboardOnlySecondLang" style="cursor: pointer; accent-color: var(--primary);">
+                                    <label for="dashboardOnlySecondLangCheckbox" style="font-size: 0.78rem; color: var(--text-muted); cursor: pointer; user-select: none;">
+                                        <i class="fas fa-language" style="color: var(--primary); margin-right: 2px;"></i> 2nd Language Clues
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div class="dashboard-users-scroll">
+                                <div class="loader-placeholder" v-if="dashboardLoading">
+                                    <i class="fas fa-spinner fa-spin"></i> Loading...
+                                </div>
+                                <div class="empty-state-small" v-else-if="filteredLabs.length === 0">
+                                    <i class="fas fa-folder-open"></i> No labs found
+                                </div>
+                                <div v-for="lab in filteredLabs" 
+                                     :key="lab.name"
+                                     class="dashboard-user-item" 
+                                     :class="{ active: dashboardSelectedLabs.includes(lab.name) }"
+                                     @click="selectDashboardLab(lab.name)">
+                                    <div class="user-item-avatar" style="display: flex; align-items: center; justify-content: center; background: rgba(0, 210, 255, 0.1); border-radius: 50%; color: var(--primary); font-size: 1.1rem; width: 34px; height: 34px; transition: all 0.2s;">
+                                        <i class="fas fa-folder" v-if="!dashboardSelectedLabs.includes(lab.name)"></i>
+                                        <i class="fas fa-check" v-else></i>
+                                    </div>
+                                    <div class="user-item-details">
+                                        <span class="user-item-name">{{ lab.name }}</span>
+                                        <span class="user-item-meta" style="font-size: 0.7rem; color: var(--text-muted);" v-if="lab.hasSecondLang">
+                                            <i class="fas fa-language" style="color: var(--primary);"></i> Supports 2nd Lang
+                                        </span>
+                                    </div>
+                                    <i class="fas fa-chevron-right user-item-arrow" v-if="!dashboardSelectedLabs.includes(lab.name)"></i>
                                 </div>
                             </div>
                         </div>

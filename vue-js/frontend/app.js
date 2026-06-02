@@ -62,6 +62,205 @@ createApp({
         const authModalTab = ref('login');
         const changingPassword = ref(false);
 
+        // Profile Dashboard States
+        const profileActiveTab = ref('settings');
+        const profileSelectedMetric = ref('score');
+        const myScores = ref([]);
+        const allScores = ref([]);
+        const profileLoading = ref(false);
+        let profileChartInstance = null;
+
+        const metrics = [
+            { key: 'score', label: 'Words per Second', unit: 'w/s', icon: 'fa-tachometer-alt' },
+            { key: 'wordCount', label: 'Words Solved', unit: 'words', icon: 'fa-puzzle-piece' },
+            { key: 'revealsUsed', label: 'Clues Used', unit: 'times', icon: 'fa-eye' },
+            { key: 'time', label: 'Time Taken', unit: 'sec', icon: 'fa-clock' }
+        ];
+
+        const activeProfileMetricInfo = computed(() => {
+            return metrics.find(m => m.key === profileSelectedMetric.value) || metrics[0];
+        });
+
+        const formatProfileMetricValue = (val) => {
+            if (val === undefined || val === null) return '0.00';
+            return val.toFixed(2);
+        };
+
+        const profileUserStats = computed(() => {
+            let userScores = myScores.value;
+            if (selectedPlayDirs.value.length > 0) {
+                userScores = userScores.filter(s => s.labs && s.labs.some(l => selectedPlayDirs.value.includes(l)));
+            }
+            if (userScores.length === 0) return { rounds: 0, avg: 0, max: 0 };
+
+            const metricKey = profileSelectedMetric.value;
+            const scores = userScores.map(s => s[metricKey] !== undefined ? s[metricKey] : 0);
+            const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
+            const max = Math.max(...scores);
+            return { rounds: userScores.length, avg, max };
+        });
+
+        const fetchProfileDashboardData = async () => {
+            profileLoading.value = true;
+            try {
+                const name = currentUser.value ? currentUser.value.username : guestName.value;
+                const response = await fetch(`${API_URL}/my-scores?playerName=${encodeURIComponent(name || 'Guest')}`, { credentials: 'include' });
+                const data = await response.json();
+                if (data.success) {
+                    myScores.value = data.myScores;
+                    allScores.value = data.allScores;
+                }
+            } catch (err) {
+                console.error('Failed to fetch profile dashboard data:', err);
+            } finally {
+                profileLoading.value = false;
+            }
+        };
+
+        const switchProfileTab = async (tabName) => {
+            profileActiveTab.value = tabName;
+            if (tabName === 'dashboard') {
+                await fetchProfileDashboardData();
+                await nextTick();
+                updateProfileChart();
+            }
+        };
+
+        const changeProfileMetric = (key) => {
+            profileSelectedMetric.value = key;
+            updateProfileChart();
+        };
+
+        const updateProfileChart = () => {
+            const canvas = document.getElementById('profileChart');
+            if (!canvas) return;
+
+            if (profileChartInstance) {
+                profileChartInstance.destroy();
+                profileChartInstance = null;
+            }
+
+            const metricKey = profileSelectedMetric.value;
+            const metricInfo = activeProfileMetricInfo.value;
+
+            // Filter scores by selectedPlayDirs
+            let activeMyScores = myScores.value;
+            let activeAllScores = allScores.value;
+            if (selectedPlayDirs.value.length > 0) {
+                activeMyScores = activeMyScores.filter(s => s.labs && s.labs.some(l => selectedPlayDirs.value.includes(l)));
+                activeAllScores = activeAllScores.filter(s => s.labs && s.labs.some(l => selectedPlayDirs.value.includes(l)));
+            }
+
+            // Build user sequence of metric values
+            const myData = activeMyScores.map(s => s[metricKey] !== undefined ? s[metricKey] : 0);
+
+            // Build group average per round
+            const perUserScores = {};
+            activeAllScores.forEach(s => {
+                if (!perUserScores[s.playerName]) perUserScores[s.playerName] = [];
+                const val = s[metricKey] !== undefined ? s[metricKey] : 0;
+                perUserScores[s.playerName].push(val);
+            });
+
+            // Find max rounds
+            const maxRounds = Math.max(myData.length, ...Object.values(perUserScores).map(arr => arr.length), 0);
+            if (maxRounds === 0) return;
+
+            const avgPerRound = [];
+            for (let round = 0; round < maxRounds; round++) {
+                const vals = Object.values(perUserScores)
+                    .map(arr => arr[round])
+                    .filter(v => v !== undefined);
+                avgPerRound.push(vals.length > 0 ? vals.reduce((a, b) => a + b, 0) / vals.length : null);
+            }
+
+            const myDataPadded = Array.from({ length: maxRounds }, (_, i) =>
+                i < myData.length ? myData[i] : null
+            );
+
+            // Labels
+            const labels = Array.from({ length: maxRounds }, (_, i) => {
+                const entry = activeMyScores[i];
+                if (entry && entry.createdAt) {
+                    const d = new Date(entry.createdAt);
+                    return `Round ${i + 1} (${d.getDate()}/${d.getMonth()+1})`;
+                }
+                return `Round ${i + 1}`;
+            });
+
+            const ctx = canvas.getContext('2d');
+            profileChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels,
+                    datasets: [
+                        {
+                            label: 'Your Progress',
+                            data: myDataPadded,
+                            borderColor: '#00d2ff',
+                            backgroundColor: 'rgba(0, 210, 255, 0.1)',
+                            borderWidth: 2,
+                            pointBackgroundColor: '#00d2ff',
+                            pointRadius: 4,
+                            tension: 0.35,
+                            fill: true
+                        },
+                        {
+                            label: 'Group Average',
+                            data: avgPerRound,
+                            borderColor: '#a855f7',
+                            backgroundColor: 'rgba(168, 85, 247, 0.05)',
+                            borderWidth: 1.5,
+                            borderDash: [5, 4],
+                            pointBackgroundColor: '#a855f7',
+                            pointRadius: 3,
+                            tension: 0.35,
+                            fill: false,
+                            spanGaps: true
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: {
+                                color: '#94a3b8',
+                                font: { size: 10, family: 'Outfit, sans-serif' },
+                                boxWidth: 12
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: (ctx) => {
+                                    const v = ctx.parsed.y;
+                                    return v !== null ? `${ctx.dataset.label}: ${v.toFixed(2)} ${metricInfo.unit}` : `${ctx.dataset.label}: —`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: { color: '#94a3b8', font: { size: 9 } },
+                            grid: { color: 'rgba(255,255,255,0.03)' }
+                        },
+                        y: {
+                            ticks: { color: '#94a3b8', font: { size: 9 } },
+                            grid: { color: 'rgba(255,255,255,0.03)' }
+                        }
+                    }
+                }
+            });
+        };
+
+        watch(showProfileModal, (newVal) => {
+            if (!newVal && profileChartInstance) {
+                profileChartInstance.destroy();
+                profileChartInstance = null;
+            }
+        });
+
         // Guest identity (localStorage-persisted)
         const guestName = ref(localStorage.getItem('guestName') || '');
         const guestAvatar = ref(localStorage.getItem('guestAvatar') || 'avatar1');
@@ -244,6 +443,7 @@ createApp({
             profileForm.currentPassword = '';
             profileForm.newPassword = '';
             profileForm.confirmPassword = '';
+            profileActiveTab.value = 'settings';
             showProfileModal.value = true;
         };
 
@@ -1350,6 +1550,21 @@ createApp({
             changePassword,
             handleLoginModal,
             handleRegisterModal,
+            
+            // Profile Performance Dashboard
+            profileActiveTab,
+            profileSelectedMetric,
+            myScores,
+            allScores,
+            profileLoading,
+            metrics,
+            activeProfileMetricInfo,
+            formatProfileMetricValue,
+            profileUserStats,
+            fetchProfileDashboardData,
+            switchProfileTab,
+            changeProfileMetric,
+            updateProfileChart,
 
             // 2nd Language Features
             useSecondLang,

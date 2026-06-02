@@ -112,6 +112,47 @@ createApp({
         const dashboardMetric = ref('score'); // default: words per second
         let dashboardChartInstance = null;
 
+        // Labs for performance stats
+        const dashboardLabs = ref([]);
+        const dashboardSelectedLabs = ref([]);
+        const dashboardLabSearchQuery = ref('');
+        const dashboardOnlySecondLang = ref(false);
+
+        const filteredLabs = computed(() => {
+            let labs = dashboardLabs.value;
+            if (dashboardOnlySecondLang.value) {
+                labs = labs.filter(l => l.hasSecondLang);
+            }
+            const q = dashboardLabSearchQuery.value.trim().toLowerCase();
+            if (!q) return labs;
+            return labs.filter(l => l.name.toLowerCase().includes(q));
+        });
+
+        const selectDashboardLab = (labName) => {
+            const idx = dashboardSelectedLabs.value.indexOf(labName);
+            if (idx > -1) {
+                dashboardSelectedLabs.value.splice(idx, 1);
+            } else {
+                dashboardSelectedLabs.value.push(labName);
+            }
+            if (dashboardSelectedUser.value) {
+                updateChart();
+            }
+        };
+
+        // Watch toggle and update selection / chart
+        Vue.watch(dashboardOnlySecondLang, () => {
+            if (dashboardOnlySecondLang.value) {
+                dashboardSelectedLabs.value = dashboardSelectedLabs.value.filter(labName => {
+                    const lObj = dashboardLabs.value.find(l => l.name === labName);
+                    return lObj && lObj.hasSecondLang;
+                });
+            }
+            if (dashboardSelectedUser.value) {
+                updateChart();
+            }
+        });
+
         // Metrics configuration
         const metrics = [
             { key: 'score', label: 'Words per Second', unit: 'w/s', icon: 'fa-tachometer-alt' },
@@ -138,19 +179,25 @@ createApp({
         const fetchAdminDashboardData = async () => {
             dashboardLoading.value = true;
             dashboardSelectedUser.value = null;
+            dashboardSelectedLabs.value = [];
+            dashboardOnlySecondLang.value = false;
             if (dashboardChartInstance) {
                 dashboardChartInstance.destroy();
                 dashboardChartInstance = null;
             }
             try {
-                const [usersRes, scoresRes] = await Promise.all([
+                const [usersRes, scoresRes, labsRes] = await Promise.all([
                     fetch(`${API_URL}/admin/users`, { credentials: 'include' }),
-                    fetch(`${API_URL}/admin/scores`, { credentials: 'include' })
+                    fetch(`${API_URL}/admin/scores`, { credentials: 'include' }),
+                    fetch(`${API_URL}/crosswords/directories`, { credentials: 'include' })
                 ]);
                 const usersData = await usersRes.json();
                 const scoresData = await scoresRes.json();
+                const labsData = await labsRes.json();
+                
                 if (usersData.success) dashboardUsers.value = usersData.users;
                 if (scoresData.success) dashboardScores.value = scoresData.scores;
+                if (labsData.success) dashboardLabs.value = labsData.data;
             } catch (e) {
                 showToast('❌ Failed to load dashboard data', 'error');
             } finally {
@@ -190,7 +237,18 @@ createApp({
 
         const dashboardSelectedUserStats = computed(() => {
             if (!dashboardSelectedUser.value) return { rounds: 0, avg: 0, max: 0 };
-            const userScores = dashboardScores.value.filter(s => s.playerName === dashboardSelectedUser.value.username);
+            let userScores = dashboardScores.value.filter(s => s.playerName === dashboardSelectedUser.value.username);
+            
+            // Filter by selected labs if active (any match)
+            if (dashboardSelectedLabs.value.length > 0) {
+                userScores = userScores.filter(s => s.labs && s.labs.some(l => dashboardSelectedLabs.value.includes(l)));
+            }
+            
+            // Filter by 2nd language clues if active
+            if (dashboardOnlySecondLang.value) {
+                userScores = userScores.filter(s => s.labsKey && s.labsKey.startsWith('(2)'));
+            }
+            
             if (userScores.length === 0) return { rounds: 0, avg: 0, max: 0 };
             
             const metricKey = dashboardMetric.value;
@@ -232,7 +290,17 @@ createApp({
             const groupUsernames = new Set(filteredUsers.value.map(u => u.username));
 
             // Collect all scores for the filtered group
-            const groupScores = dashboardScores.value.filter(s => groupUsernames.has(s.playerName));
+            let groupScores = dashboardScores.value.filter(s => groupUsernames.has(s.playerName));
+            
+            // Filter group scores by selected labs if active
+            if (dashboardSelectedLabs.value.length > 0) {
+                groupScores = groupScores.filter(s => s.labs && s.labs.some(l => dashboardSelectedLabs.value.includes(l)));
+            }
+
+            // Filter group scores by 2nd language clues if active
+            if (dashboardOnlySecondLang.value) {
+                groupScores = groupScores.filter(s => s.labsKey && s.labsKey.startsWith('(2)'));
+            }
 
             // Build per-user metric sequences
             const perUserScores = {};
@@ -262,7 +330,13 @@ createApp({
             );
 
             // X-axis labels
-            const userRawScores = dashboardScores.value.filter(s => s.playerName === selectedUser.username);
+            let userRawScores = dashboardScores.value.filter(s => s.playerName === selectedUser.username);
+            if (dashboardSelectedLabs.value.length > 0) {
+                userRawScores = userRawScores.filter(s => s.labs && s.labs.some(l => dashboardSelectedLabs.value.includes(l)));
+            }
+            if (dashboardOnlySecondLang.value) {
+                userRawScores = userRawScores.filter(s => s.labsKey && s.labsKey.startsWith('(2)'));
+            }
             const labels = Array.from({ length: maxRounds }, (_, i) => {
                 const entry = userRawScores[i];
                 if (entry && entry.createdAt) {
@@ -405,7 +479,17 @@ createApp({
             const groupUsernames = new Set(filteredUsers.value.map(u => u.username));
             
             // Filter scores to only include those users
-            const filteredScores = dashboardScores.value.filter(s => groupUsernames.has(s.playerName));
+            let filteredScores = dashboardScores.value.filter(s => groupUsernames.has(s.playerName));
+            
+            // Filter by selected labs if active
+            if (dashboardSelectedLabs.value.length > 0) {
+                filteredScores = filteredScores.filter(s => s.labs && s.labs.some(l => dashboardSelectedLabs.value.includes(l)));
+            }
+            
+            // Filter by 2nd language clues if active
+            if (dashboardOnlySecondLang.value) {
+                filteredScores = filteredScores.filter(s => s.labsKey && s.labsKey.startsWith('(2)'));
+            }
             
             // Sort by playerName, then createdAt
             filteredScores.sort((a, b) => {
@@ -453,9 +537,11 @@ createApp({
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
             
+            const secondLangText = dashboardOnlySecondLang.value ? '_2ndLang' : '';
+            const labText = dashboardSelectedLabs.value.length > 0 ? `_${dashboardSelectedLabs.value.join('_')}` : '';
             const filterText = dashboardSearchQuery.value.trim() ? `_${dashboardSearchQuery.value.trim().replace(/[*?]/g, '')}` : '';
             link.setAttribute('href', url);
-            link.setAttribute('download', `user_performance_export${filterText}.csv`);
+            link.setAttribute('download', `user_performance_export${filterText}${labText}${secondLangText}.csv`);
             link.style.visibility = 'hidden';
             document.body.appendChild(link);
             link.click();
@@ -497,6 +583,14 @@ createApp({
             selectDashboardUser,
             updateChart,
             exportFilteredUsersCSV,
+            
+            // Labs filtering
+            dashboardLabs,
+            dashboardSelectedLabs,
+            dashboardLabSearchQuery,
+            dashboardOnlySecondLang,
+            filteredLabs,
+            selectDashboardLab,
 
             // Helpers
             getAvatarDisplay,

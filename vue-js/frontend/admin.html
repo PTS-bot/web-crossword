@@ -24,6 +24,23 @@
                 <i class="fas fa-layer-group"></i>
                 <span>Admin Panel</span>
             </div>
+            
+            <!-- Header Navigation Bar -->
+            <div class="admin-hbar-nav">
+                <button class="hbar-nav-btn" :class="{ active: activeTab === 'crosswords' }" @click="switchTab('crosswords')">
+                    <i class="fas fa-puzzle-piece"></i> Crossword Manager
+                </button>
+                <a class="hbar-nav-btn" href="dashboard.html">
+                    <i class="fas fa-chart-line"></i> Dashboard
+                </a>
+                <button class="hbar-nav-btn" :class="{ active: activeTab === 'notes' }" @click="switchTab('notes')">
+                    <i class="fas fa-sticky-note"></i> Notes CRUD (DB Test)
+                </button>
+                <button class="hbar-nav-btn" :class="{ active: activeTab === 'auth' }" @click="switchTab('auth')">
+                    <i class="fas fa-user-lock"></i> Auth Settings
+                </button>
+            </div>
+
             <div class="admin-hbar-right">
                 <div v-if="!currentUser">
                     <button class="btn btn-sm btn-outline" @click="switchTab('auth')">
@@ -46,41 +63,6 @@
         </header>
 
         <div class="main-layout">
-            <aside class="app-sidebar">
-                <nav class="sidebar-nav">
-                    <button class="nav-btn" :class="{ active: activeTab === 'crosswords' }" @click="switchTab('crosswords')">
-                        <i class="fas fa-puzzle-piece"></i> Crossword Manager
-                    </button>
-                    <a class="nav-btn" href="dashboard.html">
-                        <i class="fas fa-chart-line"></i> Dashboard
-                    </a>
-                    <button class="nav-btn" :class="{ active: activeTab === 'notes' }" @click="switchTab('notes')">
-                        <i class="fas fa-sticky-note"></i> Notes CRUD (DB Test)
-                    </button>
-                    <button class="nav-btn" :class="{ active: activeTab === 'auth' }" @click="switchTab('auth')">
-                        <i class="fas fa-user-lock"></i> Auth Settings
-                    </button>
-                </nav>
-                <div class="health-widget">
-                    <h3>Service Status</h3>
-                    <div class="status-list">
-                        <div class="status-item">
-                            <span class="label">Nginx (Web Proxy)</span>
-                            <span class="status-dot" :class="statusClass(serviceStatus.nginx)"></span>
-                        </div>
-                        <div class="status-item">
-                            <span class="label">NodeJS (Backend)</span>
-                            <span class="status-dot" :class="statusClass(serviceStatus.backend)"></span>
-                        </div>
-                        <div class="status-item">
-                            <span class="label">MongoDB (Database)</span>
-                            <span class="status-dot" :class="statusClass(serviceStatus.database)"></span>
-                        </div>
-                    </div>
-                    <button class="btn btn-block btn-sm" @click="checkHealth"><i class="fas fa-sync-alt"></i> Refresh Status</button>
-                </div>
-            </aside>
-
             <main class="app-content">
 
                 <!-- Crossword Admin -->
@@ -191,44 +173,72 @@
                         </div>
                         <button class="btn btn-primary" @click="showNoteForm()"><i class="fas fa-plus"></i> New Note</button>
                     </div>
-                    <div class="form-card" v-if="showForm" id="noteFormCard">
-                        <h3>{{ noteForm.id ? 'Edit Note' : 'Create New Note' }}</h3>
-                        <form @submit.prevent="saveNote">
-                            <div class="form-group">
-                                <label for="noteTitle">Title</label>
-                                <input type="text" id="noteTitle" v-model="noteForm.title" required placeholder="Enter note title...">
+                    
+                    <div style="display: flex; gap: 24px; align-items: flex-start; margin-top: 15px;">
+                        <!-- Left Panel: Notes list & form -->
+                        <div style="flex: 1; display: flex; flex-direction: column; gap: 20px;">
+                            <div class="form-card" v-if="showForm" id="noteFormCard" style="margin-top:0;">
+                                <h3>{{ noteForm.id ? 'Edit Note' : 'Create New Note' }}</h3>
+                                <form @submit.prevent="saveNote">
+                                    <div class="form-group">
+                                        <label for="noteTitle">Title</label>
+                                        <input type="text" id="noteTitle" v-model="noteForm.title" required placeholder="Enter note title...">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="noteContent">Content</label>
+                                        <textarea id="noteContent" v-model="noteForm.content" rows="4" required placeholder="Write your note here..."></textarea>
+                                    </div>
+                                    <div class="form-actions">
+                                        <button type="button" class="btn btn-outline" @click="hideNoteForm">Cancel</button>
+                                        <button type="submit" class="btn btn-primary">{{ noteForm.id ? 'Update Note' : 'Save Note' }}</button>
+                                    </div>
+                                </form>
                             </div>
-                            <div class="form-group">
-                                <label for="noteContent">Content</label>
-                                <textarea id="noteContent" v-model="noteForm.content" rows="4" required placeholder="Write your note here..."></textarea>
-                            </div>
-                            <div class="form-actions">
-                                <button type="button" class="btn btn-outline" @click="hideNoteForm">Cancel</button>
-                                <button type="submit" class="btn btn-primary">{{ noteForm.id ? 'Update Note' : 'Save Note' }}</button>
-                            </div>
-                        </form>
-                    </div>
-                    <div class="notes-grid">
-                        <div class="loader-placeholder" v-if="notesLoading">
-                            <i class="fas fa-spinner fa-spin"></i> Loading notes from MongoDB...
-                        </div>
-                        <div class="loader-placeholder" v-else-if="currentNotes.length === 0">
-                            <i class="far fa-folder-open" style="font-size:2rem;margin-bottom:12px;display:block;"></i>
-                            No notes found. Create the first one!
-                        </div>
-                        <div class="note-item" v-for="note in currentNotes" :key="note._id" v-else>
-                            <div class="note-header">
-                                <h4>{{ note.title }}</h4>
-                                <div class="note-actions" v-if="canEdit(note)">
-                                    <button class="btn btn-xs btn-outline" @click="editNote(note)" title="Edit"><i class="fas fa-edit"></i></button>
-                                    <button class="btn btn-xs btn-outline btn-danger" @click="deleteNote(note._id)" title="Delete"><i class="fas fa-trash"></i></button>
+                            <div class="notes-grid">
+                                <div class="loader-placeholder" v-if="notesLoading">
+                                    <i class="fas fa-spinner fa-spin"></i> Loading notes from MongoDB...
+                                </div>
+                                <div class="loader-placeholder" v-else-if="currentNotes.length === 0">
+                                    <i class="far fa-folder-open" style="font-size:2rem;margin-bottom:12px;display:block;"></i>
+                                    No notes found. Create the first one!
+                                </div>
+                                <div class="note-item" v-for="note in currentNotes" :key="note._id" v-else>
+                                    <div class="note-header">
+                                        <h4>{{ note.title }}</h4>
+                                        <div class="note-actions" v-if="canEdit(note)">
+                                            <button class="btn btn-xs btn-outline" @click="editNote(note)" title="Edit"><i class="fas fa-edit"></i></button>
+                                            <button class="btn btn-xs btn-outline btn-danger" @click="deleteNote(note._id)" title="Delete"><i class="fas fa-trash"></i></button>
+                                        </div>
+                                    </div>
+                                    <div class="note-body">{{ note.content }}</div>
+                                    <div class="note-footer">
+                                        <span class="creator"><i class="far fa-user"></i> {{ note.createdBy }}</span>
+                                        <span class="date">{{ formatDate(note.createdAt) }}</span>
+                                    </div>
                                 </div>
                             </div>
-                            <div class="note-body">{{ note.content }}</div>
-                            <div class="note-footer">
-                                <span class="creator"><i class="far fa-user"></i> {{ note.createdBy }}</span>
-                                <span class="date">{{ formatDate(note.createdAt) }}</span>
+                        </div>
+                        
+                        <!-- Right Panel: Service Status Widget -->
+                        <div class="health-widget" style="width: 280px; flex-shrink: 0; background-color: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 20px; box-shadow: var(--shadow-md); margin-top: 0;">
+                            <h3 style="font-size: 1.05rem; font-weight: 700; color: #fff; margin-bottom: 15px; display: flex; align-items: center; gap: 8px;">
+                                <i class="fas fa-heartbeat" style="color: var(--primary);"></i> Service Status
+                            </h3>
+                            <div class="status-list" style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 15px;">
+                                <div class="status-item" style="display: flex; align-items: center; justify-content: space-between; font-size: 0.85rem; color: var(--text-muted);">
+                                    <span class="label">Nginx (Web Proxy)</span>
+                                    <span class="status-dot" :class="statusClass(serviceStatus.nginx)"></span>
+                                </div>
+                                <div class="status-item" style="display: flex; align-items: center; justify-content: space-between; font-size: 0.85rem; color: var(--text-muted);">
+                                    <span class="label">NodeJS (Backend)</span>
+                                    <span class="status-dot" :class="statusClass(serviceStatus.backend)"></span>
+                                </div>
+                                <div class="status-item" style="display: flex; align-items: center; justify-content: space-between; font-size: 0.85rem; color: var(--text-muted);">
+                                    <span class="label">MongoDB (Database)</span>
+                                    <span class="status-dot" :class="statusClass(serviceStatus.database)"></span>
+                                </div>
                             </div>
+                            <button class="btn btn-block btn-sm" @click="checkHealth"><i class="fas fa-sync-alt"></i> Refresh Status</button>
                         </div>
                     </div>
                 </section>

@@ -10,6 +10,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="style.css">
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>[v-cloak]{display:none!important}</style>
 </head>
 <body>
@@ -559,73 +560,150 @@
                     </div>
                 </div>
 
-                <!-- Guest name -->
-                <div class="pm-section" v-if="!currentUser">
-                    <h4><i class="fas fa-signature"></i> Display Name</h4>
-                    <div class="pm-name-form">
-                        <input type="text" v-model="profileForm.guestName" placeholder="Enter display name..." maxlength="20" class="form-control-input">
-                        <button class="btn btn-primary btn-sm" @click="saveGuestName"><i class="fas fa-check"></i> Save</button>
-                    </div>
+                <!-- Tabs inside Profile Modal -->
+                <div class="profile-modal-tabs" style="display:flex; border-bottom:1px solid var(--border-color); padding:0 22px;">
+                    <button class="profile-tab-btn" :class="{ active: profileActiveTab === 'settings' }" @click="switchProfileTab('settings')">
+                        <i class="fas fa-cog"></i> Settings
+                    </button>
+                    <button class="profile-tab-btn" :class="{ active: profileActiveTab === 'dashboard' }" @click="switchProfileTab('dashboard')">
+                        <i class="fas fa-chart-line"></i> Performance
+                    </button>
                 </div>
 
-                <!-- Profile Picture Picker & Upload -->
-                <div class="pm-section">
-                    <h4><i class="fas fa-camera"></i> Profile Picture</h4>
-                    
-                    <!-- Preset Avatars Grid -->
-                    <div class="avatar-grid">
-                        <div v-for="av in avatarOptions" 
-                             :key="av" 
-                             class="avatar-option" 
-                             :class="{ 'avatar-active': (currentUser ? currentUser.avatar : guestAvatar) === av }"
-                             @click="selectAvatar(av)">
-                            <span v-html="getAvatarDisplay(av)"></span>
+                <div v-if="profileActiveTab === 'settings'">
+                    <!-- Guest name -->
+                    <div class="pm-section" v-if="!currentUser">
+                        <h4><i class="fas fa-signature"></i> Display Name</h4>
+                        <div class="pm-name-form">
+                            <input type="text" v-model="profileForm.guestName" placeholder="Enter display name..." maxlength="20" class="form-control-input">
+                            <button class="btn btn-primary btn-sm" @click="saveGuestName"><i class="fas fa-check"></i> Save</button>
                         </div>
                     </div>
 
-                    <div class="avatar-upload-area" style="margin-top: 15px; border-top: 1px solid var(--border-color); padding-top: 15px;">
-                        <div class="avatar-upload-preview">
-                            <span v-html="getAvatarDisplay(currentUser ? (currentUser.avatar || 'avatar1') : guestAvatar)"></span>
+                    <!-- Profile Picture Picker & Upload -->
+                    <div class="pm-section">
+                        <h4><i class="fas fa-camera"></i> Profile Picture</h4>
+                        
+                        <!-- Preset Avatars Grid -->
+                        <div class="avatar-grid">
+                            <div v-for="av in avatarOptions" 
+                                 :key="av" 
+                                 class="avatar-option" 
+                                 :class="{ 'avatar-active': (currentUser ? currentUser.avatar : guestAvatar) === av }"
+                                 @click="selectAvatar(av)">
+                                <span v-html="getAvatarDisplay(av)"></span>
+                            </div>
                         </div>
-                        <div class="avatar-upload-controls">
-                            <p class="avatar-upload-hint">Or upload PNG, JPG, GIF or WebP (max 2 MB)</p>
-                            <label class="btn btn-outline btn-sm avatar-upload-btn" for="avatarFileInput">
-                                <i class="fas fa-upload"></i> Choose Image
-                            </label>
-                            <input type="file"
-                                   id="avatarFileInput"
-                                   accept="image/png,image/jpeg,image/gif,image/webp"
-                                   style="display:none;"
-                                   @change="onAvatarFileSelected">
-                            <p class="avatar-upload-filename" v-if="profileForm.uploadFileName">
-                                <i class="fas fa-check-circle" style="color:var(--success)"></i> {{ profileForm.uploadFileName }}
-                            </p>
+
+                        <div class="avatar-upload-area" style="margin-top: 15px; border-top: 1px solid var(--border-color); padding-top: 15px;">
+                            <div class="avatar-upload-preview">
+                                <span v-html="getAvatarDisplay(currentUser ? (currentUser.avatar || 'avatar1') : guestAvatar)"></span>
+                            </div>
+                            <div class="avatar-upload-controls">
+                                <p class="avatar-upload-hint">Or upload PNG, JPG, GIF or WebP (max 2 MB)</p>
+                                <label class="btn btn-outline btn-sm avatar-upload-btn" for="avatarFileInput">
+                                    <i class="fas fa-upload"></i> Choose Image
+                                </label>
+                                <input type="file"
+                                       id="avatarFileInput"
+                                       accept="image/png,image/jpeg,image/gif,image/webp"
+                                       style="display:none;"
+                                       @change="onAvatarFileSelected">
+                                <p class="avatar-upload-filename" v-if="profileForm.uploadFileName">
+                                    <i class="fas fa-check-circle" style="color:var(--success)"></i> {{ profileForm.uploadFileName }}
+                                </p>
+                            </div>
                         </div>
                     </div>
-                </div>
 
-                <!-- Change Password -->
-                <div class="pm-section" v-if="currentUser">
-                    <h4><i class="fas fa-key"></i> Change Password</h4>
-                    <form @submit.prevent="changePassword" class="pm-password-form">
-                        <input type="password" v-model="profileForm.currentPassword" placeholder="Current password" class="form-control-input" required>
-                        <input type="password" v-model="profileForm.newPassword" placeholder="New password (min 6 chars)" class="form-control-input" required>
-                        <input type="password" v-model="profileForm.confirmPassword" placeholder="Confirm new password" class="form-control-input" required>
-                        <button type="submit" class="btn btn-warning btn-block" :disabled="changingPassword">
-                            <i class="fas fa-lock"></i> {{ changingPassword ? 'Updating...' : 'Change Password' }}
+                    <!-- Change Password -->
+                    <div class="pm-section" v-if="currentUser">
+                        <h4><i class="fas fa-key"></i> Change Password</h4>
+                        <form @submit.prevent="changePassword" class="pm-password-form">
+                            <input type="password" v-model="profileForm.currentPassword" placeholder="Current password" class="form-control-input" required>
+                            <input type="password" v-model="profileForm.newPassword" placeholder="New password (min 6 chars)" class="form-control-input" required>
+                            <input type="password" v-model="profileForm.confirmPassword" placeholder="Confirm new password" class="form-control-input" required>
+                            <button type="submit" class="btn btn-warning btn-block" :disabled="changingPassword">
+                                <i class="fas fa-lock"></i> {{ changingPassword ? 'Updating...' : 'Change Password' }}
+                            </button>
+                        </form>
+                    </div>
+
+                    <div class="pm-footer" v-if="currentUser">
+                        <button class="btn btn-danger btn-sm" @click="logoutPlayer(); showProfileModal = false">
+                            <i class="fas fa-sign-out-alt"></i> Log Out
                         </button>
-                    </form>
+                    </div>
+                    <div class="pm-footer" v-else>
+                        <button class="btn btn-primary btn-sm" @click="showProfileModal = false; openAuthModal('login')">
+                            <i class="fas fa-sign-in-alt"></i> Log In to save progress
+                        </button>
+                    </div>
                 </div>
 
-                <div class="pm-footer" v-if="currentUser">
-                    <button class="btn btn-danger btn-sm" @click="logoutPlayer(); showProfileModal = false">
-                        <i class="fas fa-sign-out-alt"></i> Log Out
-                    </button>
-                </div>
-                <div class="pm-footer" v-else>
-                    <button class="btn btn-primary btn-sm" @click="showProfileModal = false; openAuthModal('login')">
-                        <i class="fas fa-sign-in-alt"></i> Log In to save progress
-                    </button>
+                <div v-else-if="profileActiveTab === 'dashboard'" class="pm-dashboard-content" style="padding: 22px; display:flex; flex-direction:column; gap:20px;">
+                    <!-- Filter Info -->
+                    <div class="pm-filter-banner" style="background: rgba(0, 210, 255, 0.05); border: 1px solid var(--border-color); padding: 10px 14px; border-radius: var(--radius-md); font-size: 0.82rem; color: var(--text-muted); display:flex; align-items:center; gap:8px;">
+                        <i class="fas fa-filter" style="color: var(--primary);"></i>
+                        <span>
+                            Filtering by: 
+                            <strong style="color:#fff;">{{ selectedDirsDisplay }}</strong>
+                        </span>
+                    </div>
+
+                    <!-- Metric selector -->
+                    <div class="metric-selector" style="display:flex; flex-direction:column; align-items:stretch; gap:6px;">
+                        <span style="font-size:0.72rem; color:var(--text-muted); font-weight:700; text-transform:uppercase; letter-spacing:0.5px;">Select Metric</span>
+                        <div class="btn-group" style="display:grid; grid-template-columns: repeat(2, 1fr); gap:6px;">
+                            <button v-for="m in metrics" 
+                                    :key="m.key"
+                                    class="btn btn-xs"
+                                    :class="profileSelectedMetric === m.key ? 'btn-primary' : 'btn-outline'"
+                                    @click="changeProfileMetric(m.key)"
+                                    style="padding:6px 10px; font-size:0.75rem; border-radius:4px; text-align:center;">
+                                <i class="fas" :class="m.icon" style="margin-right:4px;"></i> {{ m.label }}
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Quick Stats Grid -->
+                    <div class="profile-stats-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap:12px;">
+                        <div class="d-stat-card" style="padding:10px; gap:8px; background: rgba(255,255,255,0.02);">
+                            <div class="d-stat-icon stat-color-rounds" style="width:32px; height:32px; font-size:0.95rem; border-radius: 4px;"><i class="fas fa-history"></i></div>
+                            <div class="d-stat-text" style="gap:0;">
+                                <span class="label" style="font-size:0.65rem;">Rounds</span>
+                                <span class="val" style="font-size:1rem;">{{ profileUserStats.rounds }}</span>
+                            </div>
+                        </div>
+                        <div class="d-stat-card" style="padding:10px; gap:8px; background: rgba(255,255,255,0.02);">
+                            <div class="d-stat-icon stat-color-avg" style="width:32px; height:32px; font-size:0.95rem; border-radius: 4px;"><i class="fas" :class="activeProfileMetricInfo.icon"></i></div>
+                            <div class="d-stat-text" style="gap:0;">
+                                <span class="label" style="font-size:0.65rem;">Avg</span>
+                                <span class="val font-mono" style="font-size:0.92rem; font-weight:700;">
+                                    {{ formatProfileMetricValue(profileUserStats.avg) }}
+                                    <span class="unit" style="font-size:0.6rem;">{{ activeProfileMetricInfo.unit }}</span>
+                                </span>
+                            </div>
+                        </div>
+                        <div class="d-stat-card" style="padding:10px; gap:8px; background: rgba(255,255,255,0.02);">
+                            <div class="d-stat-icon stat-color-max" style="width:32px; height:32px; font-size:0.95rem; border-radius: 4px;"><i class="fas fa-fire"></i></div>
+                            <div class="d-stat-text" style="gap:0;">
+                                <span class="label" style="font-size:0.65rem;">Peak</span>
+                                <span class="val font-mono" style="font-size:0.92rem; font-weight:700;">
+                                    {{ formatProfileMetricValue(profileUserStats.max) }}
+                                    <span class="unit" style="font-size:0.6rem;">{{ activeProfileMetricInfo.unit }}</span>
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Chart Container -->
+                    <div class="profile-chart-card" style="background: rgba(0, 0, 0, 0.2); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 12px; display:flex; flex-direction:column; gap:10px;">
+                        <span style="font-size:0.75rem; color:var(--text-muted); font-weight:600;"><i class="fas fa-chart-line" style="color:var(--primary); margin-right:4px;"></i> Growth Comparison</span>
+                        <div class="chart-canvas-container" style="position: relative; height: 180px; width: 100%;">
+                            <canvas id="profileChart"></canvas>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

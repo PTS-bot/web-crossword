@@ -360,7 +360,16 @@ const checkAdmin = (req, res, next) => {
 app.get('/api/crosswords/directories', async (req, res) => {
     try {
         const dirs = await Directory.find().sort({ name: 1 });
-        res.json({ success: true, data: dirs });
+        const dirsWithStatus = await Promise.all(dirs.map(async (d) => {
+            const hasSecondLang = await CrosswordWord.exists({ directory: d.name, clue2: { $ne: '' } });
+            return {
+                _id: d._id,
+                name: d.name,
+                createdAt: d.createdAt,
+                hasSecondLang: !!hasSecondLang
+            };
+        }));
+        res.json({ success: true, data: dirsWithStatus });
     } catch (e) {
         res.status(500).json({ success: false, message: e.message });
     }
@@ -615,6 +624,39 @@ app.post('/api/rankings', async (req, res) => {
         });
 
         res.status(201).json({ success: true, data: newRanking, message: 'Score saved!' });
+    } catch (e) {
+        res.status(500).json({ success: false, message: e.message });
+    }
+});
+
+// GET /api/my-scores - Get all scores for active player and all group scores for average calculation
+app.get('/api/my-scores', async (req, res) => {
+    try {
+        let username = '';
+        if (req.session.user) {
+            username = req.session.user.username;
+        } else if (req.query.playerName) {
+            username = req.query.playerName;
+        }
+        
+        let myScores = [];
+        if (username) {
+            myScores = await Ranking.find({ playerName: username }).sort({ createdAt: 1 });
+        }
+        
+        // Return group scores (with essential columns only to minimize size)
+        const allScores = await Ranking.find({}, { 
+            playerName: 1, 
+            labs: 1, 
+            labsKey: 1, 
+            score: 1, 
+            wordCount: 1, 
+            revealsUsed: 1, 
+            time: 1, 
+            createdAt: 1 
+        }).sort({ createdAt: 1 });
+        
+        res.json({ success: true, myScores, allScores });
     } catch (e) {
         res.status(500).json({ success: false, message: e.message });
     }
