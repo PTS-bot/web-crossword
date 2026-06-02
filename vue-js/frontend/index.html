@@ -256,7 +256,7 @@
         <div class="game-play-container animate-fade-in" v-else-if="gameState === 'playing' || gameState === 'completed'">
             <div class="game-hbar">
                 <div class="game-hbar-left">
-                    <button class="ghb-btn ghb-back" @click="resetGameSetup" title="Back">
+                    <button class="ghb-btn ghb-back" @click="handleBackClick" title="Back">
                         <i class="fas fa-arrow-left"></i>
                     </button>
                     <div class="ghb-sep"></div>

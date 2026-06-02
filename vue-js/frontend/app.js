@@ -1254,6 +1254,12 @@ createApp({
             }
         };
 
+        const resumeTimer = () => {
+            if (!_timerInterval && gameState.value === 'playing') {
+                _timerInterval = setInterval(() => { timerSeconds.value++; }, 1000);
+            }
+        };
+
         const checkAutoCompletion = () => {
             if (gameState.value !== 'playing') return;
             
@@ -1275,7 +1281,40 @@ createApp({
             });
 
             if (totalActiveCells > 0 && allCorrect) {
-                checkAnswers();
+                stopTimer();
+            } else {
+                resumeTimer();
+            }
+        };
+
+        const handleBackClick = () => {
+            let allCorrect = true;
+            let totalActiveCells = 0;
+
+            gridCells.value.forEach(row => {
+                row.forEach(cell => {
+                    if (cell.isActive) {
+                        totalActiveCells++;
+                        const guessChar = cell.guess.trim().toUpperCase();
+                        const correctChar = cell.char.toUpperCase();
+
+                        if (!guessChar || guessChar !== correctChar) {
+                            allCorrect = false;
+                        }
+                    }
+                });
+            });
+
+            if (totalActiveCells > 0 && allCorrect && !scoreSubmitted.value) {
+                if (gameState.value === 'playing') {
+                    showToast('🏆 Excellent! All answers are correct!', 'success');
+                }
+                gameState.value = 'completed';
+                stopTimer();
+                showCompletionOverlay.value = true;
+                checkSolvedWords();
+            } else {
+                resetGameSetup();
             }
         };
 
@@ -1685,6 +1724,7 @@ createApp({
             startGame,
             resetGuesses,
             resetGameSetup,
+            handleBackClick,
             checkAnswers,
             focusCell,
             isCellFocused,
