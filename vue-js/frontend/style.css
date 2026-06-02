@@ -1662,16 +1662,11 @@ body {
     flex: 1;
     position: relative;
     overflow: hidden;
-    background:
-        radial-gradient(ellipse at 20% 20%, rgba(0, 210, 255, 0.04) 0%, transparent 60%),
-        radial-gradient(ellipse at 80% 80%, rgba(0, 230, 118, 0.03) 0%, transparent 60%),
-        var(--bg-main);
+    background: transparent;
     background-image:
         radial-gradient(ellipse at 20% 20%, rgba(0, 210, 255, 0.04) 0%, transparent 60%),
-        radial-gradient(ellipse at 80% 80%, rgba(0, 230, 118, 0.03) 0%, transparent 60%),
-        linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
-    background-size: 100% 100%, 100% 100%, 32px 32px, 32px 32px;
+        radial-gradient(ellipse at 80% 80%, rgba(0, 230, 118, 0.03) 0%, transparent 60%);
+    background-size: 100% 100%, 100% 100%;
     user-select: none;
 }
 
@@ -1725,14 +1720,28 @@ body {
 }
 
 .clues-modal-header {
-    display: flex;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
     align-items: center;
-    justify-content: space-between;
     padding: 16px 20px;
     border-bottom: 1px solid var(--border-color);
     flex-shrink: 0;
 }
+.clues-modal-header .clues-modal-close {
+    justify-self: start;
+}
+.clues-modal-header-toggle {
+    justify-self: center;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(255, 255, 255, 0.04);
+    padding: 6px 14px;
+    border-radius: 20px;
+    border: 1px solid var(--border-color);
+}
 .clues-modal-header h3 {
+    justify-self: end;
     font-size: 1rem;
     font-weight: 700;
     color: #fff;
@@ -1869,6 +1878,9 @@ body {
 }
 
 @media (max-width: 600px) {
+    .clues-modal-header { grid-template-columns: auto 1fr; padding: 10px 14px; }
+    .clues-modal-header h3 { display: none; }
+    .clues-modal-header-toggle { justify-self: center; }
     .clues-modal-body { grid-template-columns: 1fr; }
     .clues-col { border-right: none; border-bottom: 1px solid var(--border-color); }
     .game-hbar { padding: 0 8px; gap: 4px; }
@@ -1880,7 +1892,7 @@ body {
    ============================================================ */
 .game-stats-panel {
     position: absolute;
-    top: 62px; /* just below header bar */
+    top: 130px; /* moved down to not overlap active clue banner */
     right: 16px;
     z-index: 20;
     background: rgba(18, 24, 36, 0.92);
@@ -1892,6 +1904,27 @@ body {
     flex-direction: column;
     overflow: hidden;
     min-width: 90px;
+    user-select: none;
+}
+
+.stats-drag-handle {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 14px;
+    font-size: 0.65rem;
+    color: rgba(255, 255, 255, 0.2);
+    cursor: grab;
+    background: rgba(255, 255, 255, 0.03);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    transition: background 0.15s, color 0.15s;
+}
+.stats-drag-handle:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.5);
+}
+.stats-drag-handle:active {
+    cursor: grabbing;
 }
 
 .stats-item {
@@ -3493,4 +3526,224 @@ body {
         max-height: 350px;
     }
 }
+
+/* ============================================================
+   🔄 3D CARD FLIP & TOGGLE SWITCH STYLES
+   ============================================================ */
+
+/* Toggle Switch Container */
+.lang-toggle-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.04);
+    padding: 10px 16px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-color);
+    margin-top: 10px;
+    margin-bottom: 5px;
+}
+
+.lang-toggle-label {
+    font-size: 0.86rem;
+    font-weight: 600;
+    color: var(--text-main);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.lang-toggle-label i {
+    color: var(--primary);
+}
+
+/* Custom Toggle Switch styling */
+.switch-toggle {
+    position: relative;
+    display: inline-block;
+    width: 44px;
+    height: 24px;
+    flex-shrink: 0;
+}
+
+.switch-toggle input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider-round {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(255, 255, 255, 0.15);
+    transition: .3s;
+    border-radius: 24px;
+    border: 1px solid var(--border-color);
+}
+
+.slider-round:before {
+    position: absolute;
+    content: "";
+    height: 16px;
+    width: 16px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: .3s;
+    border-radius: 50%;
+    box-shadow: var(--shadow-sm);
+}
+
+.switch-toggle input:checked + .slider-round {
+    background-color: var(--primary);
+    border-color: rgba(0, 210, 255, 0.3);
+}
+
+.switch-toggle input:checked + .slider-round:before {
+    transform: translateX(20px);
+}
+
+/* 3D Flippable Clue Card */
+.clue-card-wrapper {
+    perspective: 1000px;
+    margin-bottom: 8px;
+    width: 100%;
+}
+
+.clue-card-inner {
+    position: relative;
+    width: 100%;
+    transition: transform 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    transform-style: preserve-3d;
+    cursor: pointer;
+}
+
+/* Add active states matching original heights/paddings */
+.clue-card-wrapper.is-flipped .clue-card-inner {
+    transform: rotateY(180deg);
+}
+
+.clue-card-front, .clue-card-back {
+    width: 100%;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+}
+
+.clue-card-back {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    transform: rotateY(180deg);
+}
+
+/* Direct Clue Select Focus Button */
+.btn-select-clue {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid var(--border-color);
+    color: var(--text-muted);
+    border-radius: 4px;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    margin-left: auto;
+    font-size: 0.8rem;
+    transition: all 0.15s ease;
+}
+
+.btn-select-clue:hover {
+    color: var(--primary);
+    border-color: var(--primary);
+    background: rgba(0, 210, 255, 0.1);
+    transform: scale(1.05);
+}
+
+/* Highlight clue 2 content back card text */
+.clue2-highlight {
+    color: #ffd54f !important;
+    font-weight: 500;
+}
+
+/* ============================================================
+   📺 ACTIVE CLUE BANNER (at bottom of stat panel/above grid)
+   ============================================================ */
+.active-clue-banner-container {
+    width: calc(100% - 32px);
+    margin: 0 16px;
+    z-index: 15;
+    flex-shrink: 0;
+}
+
+.active-clue-banner {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: linear-gradient(135deg, rgba(18, 28, 48, 0.95), rgba(12, 18, 30, 0.95));
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 10px 18px;
+    box-shadow: var(--shadow-md), 0 0 0 1px rgba(255,255,255,0.03);
+    backdrop-filter: blur(12px);
+    transition: all 0.2s ease;
+    min-height: 48px;
+}
+
+.active-clue-banner:hover {
+    border-color: rgba(0, 210, 255, 0.3);
+}
+
+.clue-dir-badge {
+    background: rgba(0, 210, 255, 0.15);
+    color: var(--primary);
+    font-size: 0.72rem;
+    font-weight: 800;
+    padding: 3px 8px;
+    border-radius: 4px;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+}
+
+.clue-banner-text {
+    flex: 1;
+    font-size: 0.92rem;
+    color: #fff;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.clue-banner-len {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+}
+
+.flip-hint-badge {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    background: rgba(255, 255, 255, 0.05);
+    padding: 2px 6px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+}
+
+.clue-card-inner:hover .flip-hint-badge {
+    color: var(--primary);
+}
+
+/* Extra Setup screen layout adjustments */
+.second-lang-setup-toggle {
+    margin-right: 12px;
+}
+
 

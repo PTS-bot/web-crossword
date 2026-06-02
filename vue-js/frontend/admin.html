@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Portal — Crossword Challenge</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <style>[v-cloak]{display:none!important}</style>
+</head>
+<body>
+<div class="app-container" id="app" v-cloak>
+
+    <!-- ═══════════════════════════════════════════════════════
+         ADMIN WRAPPER
+         ═══════════════════════════════════════════════════════ -->
+    <div class="admin-wrapper">
+        <header class="admin-hbar">
+            <div class="admin-hbar-brand">
+                <i class="fas fa-layer-group"></i>
+                <span>Admin Panel</span>
+                <span class="admin-hbar-sub">Nginx + NodeJS + MongoDB + Vue.js</span>
+            </div>
+            <div class="admin-hbar-right">
+                <div v-if="!currentUser">
+                    <button class="btn btn-sm btn-outline" @click="switchTab('auth')">
+                        <i class="fas fa-sign-in-alt"></i> Login
+                    </button>
+                </div>
+                <div v-else style="display:flex;align-items:center;gap:8px;">
+                    <span class="badge badge-success">
+                        <i class="fas fa-user-shield"></i> {{ currentUser.username }}
+                    </span>
+                    <button class="btn btn-sm btn-danger" @click="logout" title="Logout">
+                        <i class="fas fa-sign-out-alt"></i>
+                    </button>
+                </div>
+                <div class="ghb-sep" style="margin:0 6px;"></div>
+                <a class="btn btn-sm btn-outline" href="index.html">
+                    <i class="fas fa-gamepad"></i> Back to Game
+                </a>
+            </div>
+        </header>
+
+        <div class="main-layout">
+            <aside class="app-sidebar">
+                <nav class="sidebar-nav">
+                    <button class="nav-btn" :class="{ active: activeTab === 'crosswords' }" @click="switchTab('crosswords')">
+                        <i class="fas fa-puzzle-piece"></i> Crossword Manager
+                    </button>
+                    <a class="nav-btn" href="dashboard.html">
+                        <i class="fas fa-chart-line"></i> Dashboard
+                    </a>
+                    <button class="nav-btn" :class="{ active: activeTab === 'notes' }" @click="switchTab('notes')">
+                        <i class="fas fa-sticky-note"></i> Notes CRUD (DB Test)
+                    </button>
+                    <button class="nav-btn" :class="{ active: activeTab === 'auth' }" @click="switchTab('auth')">
+                        <i class="fas fa-user-lock"></i> Auth Settings
+                    </button>
+                </nav>
+                <div class="health-widget">
+                    <h3>Service Status</h3>
+                    <div class="status-list">
+                        <div class="status-item">
+                            <span class="label">Nginx (Web Proxy)</span>
+                            <span class="status-dot" :class="statusClass(serviceStatus.nginx)"></span>
+                        </div>
+                        <div class="status-item">
+                            <span class="label">NodeJS (Backend)</span>
+                            <span class="status-dot" :class="statusClass(serviceStatus.backend)"></span>
+                        </div>
+                        <div class="status-item">
+                            <span class="label">MongoDB (Database)</span>
+                            <span class="status-dot" :class="statusClass(serviceStatus.database)"></span>
+                        </div>
+                    </div>
+                    <button class="btn btn-block btn-sm" @click="checkHealth"><i class="fas fa-sync-alt"></i> Refresh Status</button>
+                </div>
+            </aside>
+
+            <main class="app-content">
+
+                <!-- Crossword Admin -->
+                <section class="tab-content" v-show="activeTab === 'crosswords'">
+                    <div class="crud-header">
+                        <div class="title-area">
+                            <h2>🧩 Crossword Manager</h2>
+                            <p>Create lab categories and drag CSV files to import word sets.</p>
+                        </div>
+                    </div>
+                    <div class="admin-auth-warning" v-if="!currentUser || currentUser.role !== 'admin'">
+                        <div class="warning-box">
+                            <i class="fas fa-lock"></i>
+                            <h3>Admin Login Required</h3>
+                            <p>Please sign in with an admin account to manage crossword categories.</p>
+                            <button class="btn btn-primary" @click="switchTab('auth')">
+                                <i class="fas fa-sign-in-alt"></i> Go to Login
+                            </button>
+                        </div>
+                    </div>
+                    <div class="crossword-admin-grid" v-else>
+                        <div class="admin-card">
+                            <h3><i class="fas fa-folder-plus"></i> Create Category (Directory)</h3>
+                            <form @submit.prevent="createDirectory" class="inline-form">
+                                <div class="form-group flex-1">
+                                    <input type="text" v-model="newDirName" required placeholder="e.g. network_lv4, vocab_easy">
+                                </div>
+                                <button type="submit" class="btn btn-primary">Create</button>
+                            </form>
+                            <hr class="card-divider">
+                            <h3><i class="fas fa-list"></i> All Categories</h3>
+                            <div class="dirs-list">
+                                <div class="loader-placeholder" v-if="dirsLoading">
+                                    <i class="fas fa-spinner fa-spin"></i> Loading...
+                                </div>
+                                <div class="loader-placeholder" v-else-if="crosswordDirs.length === 0">No categories found.</div>
+                                <div v-for="dir in crosswordDirs" :key="dir.name"
+                                     class="dir-list-item" :class="{ 'dir-selected': selectedAdminDir === dir.name }">
+                                    <div class="dir-info" @click="selectAdminDir(dir.name)">
+                                        <span class="dir-icon"><i class="fas fa-folder"></i></span>
+                                        <span class="dir-name">{{ dir.name }}</span>
+                                    </div>
+                                    <button class="btn btn-xs btn-outline btn-danger" @click="deleteDirectory(dir.name)" title="Delete">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="admin-card">
+                            <h3><i class="fas fa-file-upload"></i> Upload Word File (CSV)</h3>
+                            <div class="form-group">
+                                <label>Select target category</label>
+                                <select v-model="uploadTargetDir" class="form-control-select">
+                                    <option value="" disabled>-- Select a category --</option>
+                                    <option v-for="dir in crosswordDirs" :key="dir.name" :value="dir.name">{{ dir.name }}</option>
+                                </select>
+                            </div>
+                            <div class="drag-drop-zone"
+                                 :class="{ 'drag-over': isDragOver }"
+                                 @dragover.prevent="onDragOver"
+                                 @dragleave.prevent="onDragLeave"
+                                 @drop.prevent="onDropFile"
+                                 @click="triggerFileInput">
+                                <input type="file" ref="fileInput" @change="onFileSelected" accept=".csv" style="display:none;">
+                                <div class="drag-drop-content">
+                                    <i class="fas fa-cloud-upload-alt"></i>
+                                    <p class="title">Drag CSV here or click to browse</p>
+                                    <p class="subtitle">CSV format: Col 1 = Word, Col 2 = Clue 1, Col 3 = Clue 2 (Optional)</p>
+                                </div>
+                            </div>
+                            <div v-if="parsedFileWords.length > 0" class="upload-preview-box">
+                                <div class="preview-header">
+                                    <span><i class="fas fa-file-csv"></i> {{ selectedFileName }} ({{ parsedFileWords.length }} words)</span>
+                                    <button class="btn btn-xs btn-outline btn-danger" @click="clearParsedFile">Clear</button>
+                                </div>
+                                <div class="preview-scroll">
+                                    <table class="preview-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Word</th>
+                                                <th>Clue 1 (Lang 1)</th>
+                                                <th>Clue 2 (Lang 2)</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr v-for="(w, idx) in parsedFileWords" :key="idx">
+                                                <td><code>{{ w.word }}</code></td>
+                                                <td>{{ w.clue }}</td>
+                                                <td><span class="text-primary font-bold">{{ w.clue2 || '-' }}</span></td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <button class="btn btn-success btn-block" @click="submitUploadedWords" :disabled="!uploadTargetDir">
+                                    <i class="fas fa-save"></i> Save {{ parsedFileWords.length }} words to "{{ uploadTargetDir }}"
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Notes CRUD -->
+                <section class="tab-content" v-show="activeTab === 'notes'">
+                    <div class="crud-header">
+                        <div class="title-area">
+                            <h2>📝 Note Storage CRUD</h2>
+                            <p>Test MongoDB read, write, update, and delete operations.</p>
+                        </div>
+                        <button class="btn btn-primary" @click="showNoteForm()"><i class="fas fa-plus"></i> New Note</button>
+                    </div>
+                    <div class="form-card" v-if="showForm" id="noteFormCard">
+                        <h3>{{ noteForm.id ? 'Edit Note' : 'Create New Note' }}</h3>
+                        <form @submit.prevent="saveNote">
+                            <div class="form-group">
+                                <label for="noteTitle">Title</label>
+                                <input type="text" id="noteTitle" v-model="noteForm.title" required placeholder="Enter note title...">
+                            </div>
+                            <div class="form-group">
+                                <label for="noteContent">Content</label>
+                                <textarea id="noteContent" v-model="noteForm.content" rows="4" required placeholder="Write your note here..."></textarea>
+                            </div>
+                            <div class="form-actions">
+                                <button type="button" class="btn btn-outline" @click="hideNoteForm">Cancel</button>
+                                <button type="submit" class="btn btn-primary">{{ noteForm.id ? 'Update Note' : 'Save Note' }}</button>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="notes-grid">
+                        <div class="loader-placeholder" v-if="notesLoading">
+                            <i class="fas fa-spinner fa-spin"></i> Loading notes from MongoDB...
+                        </div>
+                        <div class="loader-placeholder" v-else-if="currentNotes.length === 0">
+                            <i class="far fa-folder-open" style="font-size:2rem;margin-bottom:12px;display:block;"></i>
+                            No notes found. Create the first one!
+                        </div>
+                        <div class="note-item" v-for="note in currentNotes" :key="note._id" v-else>
+                            <div class="note-header">
+                                <h4>{{ note.title }}</h4>
+                                <div class="note-actions" v-if="canEdit(note)">
+                                    <button class="btn btn-xs btn-outline" @click="editNote(note)" title="Edit"><i class="fas fa-edit"></i></button>
+                                    <button class="btn btn-xs btn-outline btn-danger" @click="deleteNote(note._id)" title="Delete"><i class="fas fa-trash"></i></button>
+                                </div>
+                            </div>
+                            <div class="note-body">{{ note.content }}</div>
+                            <div class="note-footer">
+                                <span class="creator"><i class="far fa-user"></i> {{ note.createdBy }}</span>
+                                <span class="date">{{ formatDate(note.createdAt) }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Auth Settings -->
+                <section class="tab-content" v-show="activeTab === 'auth'">
+                    <div class="auth-section-title">
+                        <h2><i class="fas fa-user-shield"></i> Authentication Controller</h2>
+                        <p>Manage user registration and session storage in MongoDB.</p>
+                    </div>
+                    <div class="auth-grid">
+                        <div class="auth-card" id="loginCard">
+                            <h3><i class="fas fa-sign-in-alt"></i> Login</h3>
+                            <form @submit.prevent="handleLogin">
+                                <div class="form-group">
+                                    <label>Username</label>
+                                    <input type="text" v-model="authForm.loginUsername" required placeholder="Enter username...">
+                                </div>
+                                <div class="form-group">
+                                    <label>Password</label>
+                                    <input type="password" v-model="authForm.loginPassword" required placeholder="Enter password...">
+                                </div>
+                                <button type="submit" class="btn btn-primary btn-block">Sign In</button>
+                            </form>
+                        </div>
+                        <div class="auth-card" id="registerCard">
+                            <h3><i class="fas fa-user-plus"></i> Register</h3>
+                            <form @submit.prevent="handleRegister">
+                                <div class="form-group">
+                                    <label>New Username</label>
+                                    <input type="text" v-model="authForm.regUsername" required placeholder="Enter username...">
+                                </div>
+                                <div class="form-group">
+                                    <label>New Password</label>
+                                    <input type="password" v-model="authForm.regPassword" required placeholder="Enter password...">
+                                </div>
+                                <button type="submit" class="btn btn-success btn-block">Create Account</button>
+                            </form>
+                        </div>
+                    </div>
+                </section>
+
+            </main>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div id="toast" class="toast" :class="{ hidden: !toast.show }" :style="{ borderColor: toastBorderColor }">
+        <span v-html="toast.message"></span>
+    </div>
+
+</div>
+<script src="admin.js"></script>
+</body>
+</html>

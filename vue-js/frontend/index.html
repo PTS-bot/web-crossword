@@ -10,7 +10,6 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="style.css">
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>[v-cloak]{display:none!important}</style>
 </head>
 <body>
@@ -19,7 +18,7 @@
     <!-- ═══════════════════════════════════════════════════════
          PLAYER MODE
          ═══════════════════════════════════════════════════════ -->
-    <div class="player-layout" v-if="viewMode === 'player'">
+    <div class="player-layout">
 
         <!-- ── GAME SETUP SCREEN ── -->
         <div class="game-setup-container" v-if="gameState === 'setup'">
@@ -62,7 +61,7 @@
 
                     <!-- RIGHT: Auth buttons -->
                     <div class="pnb-right">
-                        <!-- Auth Buttons -->
+                        <!-- Auth/Admin Buttons -->
                         <div class="pnb-auth-btns">
                             <template v-if="!currentUser">
                                 <button class="btn btn-outline btn-sm" @click="openAuthModal('login')" id="loginBtn">
@@ -73,9 +72,9 @@
                                 </button>
                             </template>
                             <template v-else>
-                                <button class="btn btn-outline btn-sm pnb-admin-btn" @click="switchViewMode('admin')" v-if="currentUser.role==='admin'">
-                                    <i class="fas fa-cog"></i> Admin
-                                </button>
+                                <a class="btn btn-outline btn-sm pnb-admin-btn" href="admin.html" v-if="currentUser.role==='admin'">
+                                    <i class="fas fa-cog"></i> Admin Panel
+                                </a>
                                 <button class="btn btn-sm pnb-logout-btn" @click="logoutPlayer" id="logoutBtn">
                                     <i class="fas fa-sign-out-alt"></i> Log Out
                                 </button>
@@ -97,6 +96,13 @@
                     </div>
                     <form @submit.prevent="startGame" class="setup-top-form">
                         <div class="top-form-controls">
+                            <!-- Toggle switch for second language state before start -->
+                            <div class="form-group-top second-lang-setup-toggle">
+                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none;">
+                                    <input type="checkbox" v-model="useSecondLang" style="width: 16px; height: 16px; accent-color: var(--primary);">
+                                    <span>2nd Language Clues</span>
+                                </label>
+                            </div>
                             <div class="form-group-top" v-if="selectedPlayDirs.length > 0">
                                 <label for="wordCountInput">Shuffle count: <span class="highlight">{{ playConfig.wordCount }} / {{ maxAvailableWords }} words</span></label>
                                 <div class="range-wrap-top">
@@ -225,10 +231,10 @@
                                                      </span>
                                                      <span class="rank-date-sub">{{ formatRankDate(rank.createdAt) }}</span>
                                                  </div>
-                                             </td>
-                                         </tr>
-                                     </tbody>
-                                 </table>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
                     </div>
@@ -275,7 +281,13 @@
                 <div class="game-hbar-right"></div>
             </div>
 
-            <div class="game-stats-panel">
+            <div class="game-stats-panel"
+                 :style="statsPanelStyle"
+                 @mousedown="startStatsDrag"
+                 @touchstart="startStatsDrag">
+                <div class="stats-drag-handle">
+                    <i class="fas fa-ellipsis-h"></i>
+                </div>
                 <div class="stats-item">
                     <i class="fas fa-clock"></i>
                     <span class="stats-label">Time</span>
@@ -286,6 +298,32 @@
                     <i class="fas fa-eye"></i>
                     <span class="stats-label">Reveals</span>
                     <span class="stats-value">{{ revealCount }}</span>
+                </div>
+            </div>
+
+            <!-- Active Clue Banner with 3D Flip Card -->
+            <div class="active-clue-banner-container" v-if="activeClue">
+                <div class="clue-card-wrapper" :class="{ 'is-flipped': flippedClues[activeClue.id] }">
+                    <div class="clue-card-inner" @click="handleClueClick($event, activeClue)">
+                        <div class="clue-card-front active-clue-banner">
+                            <span class="clue-dir-badge">
+                                <i class="fas" :class="activeClue.direction === 'across' ? 'fa-arrow-right' : 'fa-arrow-down'"></i> 
+                                {{ activeClue.number }} {{ activeClue.direction.toUpperCase() }}
+                            </span>
+                            <span class="clue-banner-text">{{ activeClue.clue }}</span>
+                            <span class="clue-banner-len">({{ activeClue.word.length }} letters)</span>
+                            <span class="flip-hint-badge"><i class="fas fa-sync"></i> Click to flip</span>
+                        </div>
+                        <div class="clue-card-back active-clue-banner">
+                            <span class="clue-dir-badge">
+                                <i class="fas" :class="activeClue.direction === 'across' ? 'fa-arrow-right' : 'fa-arrow-down'"></i> 
+                                {{ activeClue.number }} {{ activeClue.direction.toUpperCase() }}
+                            </span>
+                            <span class="clue-banner-text clue2-highlight">{{ activeClue.clue2 || activeClue.clue }}</span>
+                            <span class="clue-banner-len">({{ activeClue.word.length }} letters)</span>
+                            <span class="flip-hint-badge"><i class="fas fa-sync"></i> Click to flip</span>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -339,36 +377,90 @@
                 <div class="clues-modal-overlay" v-if="showCluesModal" @click.self="showCluesModal = false">
                     <div class="clues-modal">
                         <div class="clues-modal-header">
-                            <h3><i class="fas fa-book-open"></i> All Clues</h3>
+                            <!-- Left: Close button -->
                             <button class="clues-modal-close" @click="showCluesModal = false">
                                 <i class="fas fa-times"></i>
                             </button>
+                            
+                            <!-- Center: Toggle switch for second language -->
+                            <div class="clues-modal-header-toggle">
+                                <span class="lang-toggle-label">
+                                    <i class="fas fa-language"></i> 2nd Language Clues
+                                </span>
+                                <label class="switch-toggle">
+                                    <input type="checkbox" v-model="useSecondLang">
+                                    <span class="slider-round"></span>
+                                </label>
+                            </div>
+                            
+                            <!-- Right: Title -->
+                            <h3><i class="fas fa-book-open"></i> All Clues</h3>
                         </div>
+                        
                         <div class="clues-modal-body">
+                            <!-- Across Column -->
                             <div class="clues-col">
                                 <div class="clues-title"><i class="fas fa-arrow-right"></i> Across</div>
                                 <div class="clues-list">
                                     <div v-for="clue in acrossClues" :key="'ma-'+clue.number"
-                                         class="clue-item"
-                                         :class="{ 'clue-active': isClueActive(clue), 'clue-filled': isClueFilled(clue) }"
-                                         @click="selectClue(clue); showCluesModal = false">
-                                        <span class="clue-number">{{ clue.number }}</span>
-                                        <span class="clue-text">{{ clue.clue }}</span>
-                                        <span class="clue-length">({{ clue.word.length }})</span>
+                                         class="clue-card-wrapper"
+                                         :class="{ 'is-flipped': flippedClues[clue.id] }">
+                                        <div class="clue-card-inner" @click="handleClueClick($event, clue)">
+                                            <!-- FRONT (Lang 1) -->
+                                            <div class="clue-card-front clue-item"
+                                                 :class="{ 'clue-active': isClueActive(clue), 'clue-filled': isClueFilled(clue) }">
+                                                <span class="clue-number">{{ clue.number }}</span>
+                                                <span class="clue-text">{{ clue.clue }}</span>
+                                                <span class="clue-length">({{ clue.word.length }})</span>
+                                                <button class="btn-select-clue" @click.stop="selectClueDirect(clue)" title="Focus word">
+                                                    <i class="fas fa-crosshairs"></i>
+                                                </button>
+                                            </div>
+                                            <!-- BACK (Lang 2) -->
+                                            <div class="clue-card-back clue-item"
+                                                 :class="{ 'clue-active': isClueActive(clue), 'clue-filled': isClueFilled(clue) }">
+                                                <span class="clue-number">{{ clue.number }}</span>
+                                                <span class="clue-text clue2-highlight">{{ clue.clue2 || clue.clue }}</span>
+                                                <span class="clue-length">({{ clue.word.length }})</span>
+                                                <button class="btn-select-clue" @click.stop="selectClueDirect(clue)" title="Focus word">
+                                                    <i class="fas fa-crosshairs"></i>
+                                                </button>
+                                            </div>
+                                        </div>
                                     </div>
                                     <div v-if="acrossClues.length === 0" class="clues-empty">No across clues</div>
                                 </div>
                             </div>
+                            
+                            <!-- Down Column -->
                             <div class="clues-col">
                                 <div class="clues-title"><i class="fas fa-arrow-down"></i> Down</div>
                                 <div class="clues-list">
                                     <div v-for="clue in downClues" :key="'md-'+clue.number"
-                                         class="clue-item"
-                                         :class="{ 'clue-active': isClueActive(clue), 'clue-filled': isClueFilled(clue) }"
-                                         @click="selectClue(clue); showCluesModal = false">
-                                        <span class="clue-number">{{ clue.number }}</span>
-                                        <span class="clue-text">{{ clue.clue }}</span>
-                                        <span class="clue-length">({{ clue.word.length }})</span>
+                                         class="clue-card-wrapper"
+                                         :class="{ 'is-flipped': flippedClues[clue.id] }">
+                                        <div class="clue-card-inner" @click="handleClueClick($event, clue)">
+                                            <!-- FRONT (Lang 1) -->
+                                            <div class="clue-card-front clue-item"
+                                                 :class="{ 'clue-active': isClueActive(clue), 'clue-filled': isClueFilled(clue) }">
+                                                <span class="clue-number">{{ clue.number }}</span>
+                                                <span class="clue-text">{{ clue.clue }}</span>
+                                                <span class="clue-length">({{ clue.word.length }})</span>
+                                                <button class="btn-select-clue" @click.stop="selectClueDirect(clue)" title="Focus word">
+                                                    <i class="fas fa-crosshairs"></i>
+                                                </button>
+                                            </div>
+                                            <!-- BACK (Lang 2) -->
+                                            <div class="clue-card-back clue-item"
+                                                 :class="{ 'clue-active': isClueActive(clue), 'clue-filled': isClueFilled(clue) }">
+                                                <span class="clue-number">{{ clue.number }}</span>
+                                                <span class="clue-text clue2-highlight">{{ clue.clue2 || clue.clue }}</span>
+                                                <span class="clue-length">({{ clue.word.length }})</span>
+                                                <button class="btn-select-clue" @click.stop="selectClueDirect(clue)" title="Focus word">
+                                                    <i class="fas fa-crosshairs"></i>
+                                                </button>
+                                            </div>
+                                        </div>
                                     </div>
                                     <div v-if="downClues.length === 0" class="clues-empty">No down clues</div>
                                 </div>
@@ -388,7 +480,7 @@
 
                 <div class="score-summary-box">
                     <div class="summary-item">
-                        <span class="label">Words</span>
+                        <span class="label">Total Words</span>
                         <span class="val">{{ placedWords.length }}</span>
                     </div>
                     <div class="summary-item">
@@ -396,8 +488,8 @@
                         <span class="val">{{ timerDisplay }}</span>
                     </div>
                     <div class="summary-item">
-                        <span class="label">Speed</span>
-                        <span class="val text-primary font-bold">{{ (placedWords.length / Math.max(1, timerSeconds)).toFixed(3) }} w/s</span>
+                        <span class="label">Speed (W/S)</span>
+                        <span class="val text-primary font-bold">{{ speedDisplay }} w/s</span>
                     </div>
                 </div>
 
@@ -434,263 +526,6 @@
             </div>
         </div>
     </div><!-- /player-layout -->
-
-
-    <!-- ═══════════════════════════════════════════════════════
-         ADMIN MODE
-         ═══════════════════════════════════════════════════════ -->
-    <div class="admin-wrapper" v-if="viewMode === 'admin'">
-        <header class="admin-hbar">
-            <div class="admin-hbar-brand">
-                <i class="fas fa-layer-group"></i>
-                <span>Admin Panel</span>
-                <span class="admin-hbar-sub">Nginx + NodeJS + MongoDB + Vue.js</span>
-            </div>
-            <div class="admin-hbar-right">
-                <div v-if="!currentUser">
-                    <button class="btn btn-sm btn-outline" @click="switchTab('auth')">
-                        <i class="fas fa-sign-in-alt"></i> Login
-                    </button>
-                </div>
-                <div v-else style="display:flex;align-items:center;gap:8px;">
-                    <span class="badge badge-success">
-                        <i class="fas fa-user-shield"></i> {{ currentUser.username }}
-                    </span>
-                    <button class="btn btn-sm btn-danger" @click="logout" title="Logout">
-                        <i class="fas fa-sign-out-alt"></i>
-                    </button>
-                </div>
-                <div class="ghb-sep" style="margin:0 6px;"></div>
-                <button class="btn btn-sm btn-outline" @click="switchViewMode('player')">
-                    <i class="fas fa-gamepad"></i> Back to Game
-                </button>
-            </div>
-        </header>
-
-        <div class="main-layout">
-        <aside class="app-sidebar">
-            <nav class="sidebar-nav">
-                <button class="nav-btn" :class="{ active: activeTab === 'crosswords' }" @click="switchTab('crosswords')">
-                    <i class="fas fa-puzzle-piece"></i> Crossword Manager
-                </button>
-                <a class="nav-btn" href="dashboard.html">
-                    <i class="fas fa-chart-line"></i> Dashboard
-                </a>
-                <button class="nav-btn" :class="{ active: activeTab === 'notes' }" @click="switchTab('notes')">
-                    <i class="fas fa-sticky-note"></i> Notes CRUD (DB Test)
-                </button>
-                <button class="nav-btn" :class="{ active: activeTab === 'auth' }" @click="switchTab('auth')">
-                    <i class="fas fa-user-lock"></i> Auth Settings
-                </button>
-            </nav>
-            <div class="health-widget">
-                <h3>Service Status</h3>
-                <div class="status-list">
-                    <div class="status-item">
-                        <span class="label">Nginx (Web Proxy)</span>
-                        <span class="status-dot" :class="statusClass(serviceStatus.nginx)"></span>
-                    </div>
-                    <div class="status-item">
-                        <span class="label">NodeJS (Backend)</span>
-                        <span class="status-dot" :class="statusClass(serviceStatus.backend)"></span>
-                    </div>
-                    <div class="status-item">
-                        <span class="label">MongoDB (Database)</span>
-                        <span class="status-dot" :class="statusClass(serviceStatus.database)"></span>
-                    </div>
-                </div>
-                <button class="btn btn-block btn-sm" @click="checkHealth"><i class="fas fa-sync-alt"></i> Refresh Status</button>
-            </div>
-        </aside>
-
-        <main class="app-content">
-
-            <!-- Crossword Admin -->
-            <section class="tab-content" v-show="activeTab === 'crosswords'">
-                <div class="crud-header">
-                    <div class="title-area">
-                        <h2>🧩 Crossword Manager</h2>
-                        <p>Create lab categories and drag CSV files to import word sets.</p>
-                    </div>
-                </div>
-                <div class="admin-auth-warning" v-if="!currentUser || currentUser.role !== 'admin'">
-                    <div class="warning-box">
-                        <i class="fas fa-lock"></i>
-                        <h3>Admin Login Required</h3>
-                        <p>Please sign in with an admin account to manage crossword categories.</p>
-                        <button class="btn btn-primary" @click="switchTab('auth')">
-                            <i class="fas fa-sign-in-alt"></i> Go to Login
-                        </button>
-                    </div>
-                </div>
-                <div class="crossword-admin-grid" v-else>
-                    <div class="admin-card">
-                        <h3><i class="fas fa-folder-plus"></i> Create Category (Directory)</h3>
-                        <form @submit.prevent="createDirectory" class="inline-form">
-                            <div class="form-group flex-1">
-                                <input type="text" v-model="newDirName" required placeholder="e.g. network_lv4, vocab_easy">
-                            </div>
-                            <button type="submit" class="btn btn-primary">Create</button>
-                        </form>
-                        <hr class="card-divider">
-                        <h3><i class="fas fa-list"></i> All Categories</h3>
-                        <div class="dirs-list">
-                            <div class="loader-placeholder" v-if="dirsLoading">
-                                <i class="fas fa-spinner fa-spin"></i> Loading...
-                            </div>
-                            <div class="loader-placeholder" v-else-if="crosswordDirs.length === 0">No categories found.</div>
-                            <div v-for="dir in crosswordDirs" :key="dir.name"
-                                 class="dir-list-item" :class="{ 'dir-selected': selectedAdminDir === dir.name }">
-                                <div class="dir-info" @click="selectAdminDir(dir.name)">
-                                    <span class="dir-icon"><i class="fas fa-folder"></i></span>
-                                    <span class="dir-name">{{ dir.name }}</span>
-                                </div>
-                                <button class="btn btn-xs btn-outline btn-danger" @click="deleteDirectory(dir.name)" title="Delete">
-                                    <i class="fas fa-trash"></i>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="admin-card">
-                        <h3><i class="fas fa-file-upload"></i> Upload Word File (CSV)</h3>
-                        <div class="form-group">
-                            <label>Select target category</label>
-                            <select v-model="uploadTargetDir" class="form-control-select">
-                                <option value="" disabled>-- Select a category --</option>
-                                <option v-for="dir in crosswordDirs" :key="dir.name" :value="dir.name">{{ dir.name }}</option>
-                            </select>
-                        </div>
-                        <div class="drag-drop-zone"
-                             :class="{ 'drag-over': isDragOver }"
-                             @dragover.prevent="onDragOver"
-                             @dragleave.prevent="onDragLeave"
-                             @drop.prevent="onDropFile"
-                             @click="triggerFileInput">
-                            <input type="file" ref="fileInput" @change="onFileSelected" accept=".csv" style="display:none;">
-                            <div class="drag-drop-content">
-                                <i class="fas fa-cloud-upload-alt"></i>
-                                <p class="title">Drag CSV here or click to browse</p>
-                                <p class="subtitle">CSV format: Column 1 = Word, Column 2 = Clue</p>
-                            </div>
-                        </div>
-                        <div v-if="parsedFileWords.length > 0" class="upload-preview-box">
-                            <div class="preview-header">
-                                <span><i class="fas fa-file-csv"></i> {{ selectedFileName }} ({{ parsedFileWords.length }} words)</span>
-                                <button class="btn btn-xs btn-outline btn-danger" @click="clearParsedFile">Clear</button>
-                            </div>
-                            <div class="preview-scroll">
-                                <table class="preview-table">
-                                    <thead><tr><th>Word</th><th>Clue</th></tr></thead>
-                                    <tbody>
-                                        <tr v-for="(w, idx) in parsedFileWords" :key="idx">
-                                            <td><code>{{ w.word }}</code></td>
-                                            <td>{{ w.clue }}</td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                            <button class="btn btn-success btn-block" @click="submitUploadedWords" :disabled="!uploadTargetDir">
-                                <i class="fas fa-save"></i> Save {{ parsedFileWords.length }} words to "{{ uploadTargetDir }}"
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <!-- Notes CRUD -->
-            <section class="tab-content" v-show="activeTab === 'notes'">
-                <div class="crud-header">
-                    <div class="title-area">
-                        <h2>📝 Note Storage CRUD</h2>
-                        <p>Test MongoDB read, write, update, and delete operations.</p>
-                    </div>
-                    <button class="btn btn-primary" @click="showNoteForm()"><i class="fas fa-plus"></i> New Note</button>
-                </div>
-                <div class="form-card" v-if="showForm" id="noteFormCard">
-                    <h3>{{ noteForm.id ? 'Edit Note' : 'Create New Note' }}</h3>
-                    <form @submit.prevent="saveNote">
-                        <div class="form-group">
-                            <label for="noteTitle">Title</label>
-                            <input type="text" id="noteTitle" v-model="noteForm.title" required placeholder="Enter note title...">
-                        </div>
-                        <div class="form-group">
-                            <label for="noteContent">Content</label>
-                            <textarea id="noteContent" v-model="noteForm.content" rows="4" required placeholder="Write your note here..."></textarea>
-                        </div>
-                        <div class="form-actions">
-                            <button type="button" class="btn btn-outline" @click="hideNoteForm">Cancel</button>
-                            <button type="submit" class="btn btn-primary">{{ noteForm.id ? 'Update Note' : 'Save Note' }}</button>
-                        </div>
-                    </form>
-                </div>
-                <div class="notes-grid">
-                    <div class="loader-placeholder" v-if="notesLoading">
-                        <i class="fas fa-spinner fa-spin"></i> Loading notes from MongoDB...
-                    </div>
-                    <div class="loader-placeholder" v-else-if="currentNotes.length === 0">
-                        <i class="far fa-folder-open" style="font-size:2rem;margin-bottom:12px;display:block;"></i>
-                        No notes found. Create the first one!
-                    </div>
-                    <div class="note-item" v-for="note in currentNotes" :key="note._id" v-else>
-                        <div class="note-header">
-                            <h4>{{ note.title }}</h4>
-                            <div class="note-actions" v-if="canEdit(note)">
-                                <button class="btn btn-xs btn-outline" @click="editNote(note)" title="Edit"><i class="fas fa-edit"></i></button>
-                                <button class="btn btn-xs btn-outline btn-danger" @click="deleteNote(note._id)" title="Delete"><i class="fas fa-trash"></i></button>
-                            </div>
-                        </div>
-                        <div class="note-body">{{ note.content }}</div>
-                        <div class="note-footer">
-                            <span class="creator"><i class="far fa-user"></i> {{ note.createdBy }}</span>
-                            <span class="date">{{ formatDate(note.createdAt) }}</span>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <!-- Auth Settings -->
-            <section class="tab-content" v-show="activeTab === 'auth'">
-                <div class="auth-section-title">
-                    <h2><i class="fas fa-user-shield"></i> Authentication Controller</h2>
-                    <p>Manage user registration and session storage in MongoDB.</p>
-                </div>
-                <div class="auth-grid">
-                    <div class="auth-card" id="loginCard">
-                        <h3><i class="fas fa-sign-in-alt"></i> Login</h3>
-                        <form @submit.prevent="handleLogin">
-                            <div class="form-group">
-                                <label>Username</label>
-                                <input type="text" v-model="authForm.loginUsername" required placeholder="Enter username...">
-                            </div>
-                            <div class="form-group">
-                                <label>Password</label>
-                                <input type="password" v-model="authForm.loginPassword" required placeholder="Enter password...">
-                            </div>
-                            <button type="submit" class="btn btn-primary btn-block">Sign In</button>
-                        </form>
-                    </div>
-                    <div class="auth-card" id="registerCard">
-                        <h3><i class="fas fa-user-plus"></i> Register</h3>
-                        <form @submit.prevent="handleRegister">
-                            <div class="form-group">
-                                <label>New Username</label>
-                                <input type="text" v-model="authForm.regUsername" required placeholder="Enter username...">
-                            </div>
-                            <div class="form-group">
-                                <label>New Password</label>
-                                <input type="password" v-model="authForm.regPassword" required placeholder="Enter password...">
-                            </div>
-                            <button type="submit" class="btn btn-success btn-block">Create Account</button>
-                        </form>
-                    </div>
-                </div>
-            </section>
-
-        </main>
-        </div>
-    </div><!-- /admin-wrapper -->
-
-
 
     <!-- Toast -->
     <div id="toast" class="toast" :class="{ hidden: !toast.show }" :style="{ borderColor: toastBorderColor }">
@@ -852,7 +687,7 @@
         </div>
     </transition>
 
-</div><!-- /app-container -->
+</div>
 <script src="app.js"></script>
 </body>
 </html>

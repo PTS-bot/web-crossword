@@ -79,6 +79,7 @@ const crosswordWordSchema = new mongoose.Schema({
     directory: { type: String, required: true },
     word: { type: String, required: true },
     clue: { type: String, required: true },
+    clue2: { type: String, default: '' },
     createdAt: { type: Date, default: Date.now }
 });
 
@@ -440,7 +441,8 @@ app.post('/api/crosswords/upload', checkAdmin, async (req, res) => {
             .map(w => ({
                 directory: cleanedDir,
                 word: w.word.trim().toUpperCase(),
-                clue: w.clue ? w.clue.trim() : 'No clue provided.'
+                clue: w.clue ? w.clue.trim() : 'No clue provided.',
+                clue2: w.clue2 ? w.clue2.trim() : ''
             }));
 
         if (wordsToInsert.length === 0) {
@@ -560,11 +562,25 @@ app.post('/api/admin/seed-mock-data', checkAdmin, async (req, res) => {
 // GET /api/rankings - Get top 50 rankings, optionally filtered by labsKey
 app.get('/api/rankings', async (req, res) => {
     try {
-        const { labsKey } = req.query;
+        const { labsKey, onlySecondLang } = req.query;
         let query = {};
+        
+        const isSecondLang = onlySecondLang === 'true';
+        
         if (labsKey && labsKey !== 'all') {
-            query.labsKey = labsKey;
+            // Strip any (2) prefix first to clean it, then append based on isSecondLang
+            const cleanKey = labsKey.replace(/^\(2\)/, '');
+            query.labsKey = isSecondLang ? `(2)${cleanKey}` : cleanKey;
+        } else {
+            // For "All Labs"
+            if (isSecondLang) {
+                query.labsKey = { $regex: /^\(2\)/ };
+            } else {
+                // Match anything that does NOT start with (2)
+                query.labsKey = { $regex: /^(?!\(2\))/ };
+            }
         }
+        
         const rankings = await Ranking.find(query).sort({ score: -1 }).limit(50);
         res.json({ success: true, data: rankings });
     } catch (e) {
@@ -575,13 +591,17 @@ app.get('/api/rankings', async (req, res) => {
 // POST /api/rankings - Submit a new score
 app.post('/api/rankings', async (req, res) => {
     try {
-        const { playerName, playerAvatar, labs, wordCount, time, revealsUsed } = req.body;
+        const { playerName, playerAvatar, labs, wordCount, time, revealsUsed, unrevealedWordCount, useSecondLang } = req.body;
         if (!playerName || !labs || !Array.isArray(labs) || labs.length === 0 || !wordCount || !time) {
             return res.status(400).json({ success: false, message: 'playerName, labs, wordCount, time are required' });
         }
 
-        const score = Number((wordCount / time).toFixed(4));
-        const labsKey = labs.slice().sort().join('+');
+        const scoreWords = (unrevealedWordCount !== undefined) ? Number(unrevealedWordCount) : Number(wordCount);
+        const score = Number((scoreWords / time).toFixed(4));
+        let labsKey = labs.slice().sort().join('+');
+        if (useSecondLang) {
+            labsKey = `(2)${labsKey}`;
+        }
 
         const newRanking = await Ranking.create({
             playerName: playerName.trim().substring(0, 20),

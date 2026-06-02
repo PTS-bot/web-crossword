@@ -1,0 +1,3 @@
+switch,"A device that connects multiple devices in a LAN and forwards data based on MAC addresses.","อุปกรณ์ที่เชื่อมต่ออุปกรณ์หลายเครื่องใน LAN และส่งต่อข้อมูลตามที่อยู่ MAC"
+host,"A computer or other device connected to a network that provides or uses network services.","อุปกรณ์หรือคอมพิวเตอร์อื่นที่เชื่อมต่อกับเครือข่ายและให้บริการหรือใช้บริการเครือข่าย"
+end device,"A device such as a computer or printer that is the source or destination of network messages.","อุปกรณ์เช่นคอมพิวเตอร์หรือเครื่องพิมพ์ที่เป็นต้นทางหรือปลายทางของข้อความเครือข่าย"
