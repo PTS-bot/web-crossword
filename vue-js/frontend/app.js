@@ -95,6 +95,16 @@ createApp({
             }
         });
 
+        // Prevent word count from going below 3 (or maxAvailableWords if less than 3)
+        watch(() => playConfig.wordCount, (newVal) => {
+            if (maxAvailableWords.value > 0) {
+                const limit = Math.min(3, maxAvailableWords.value);
+                if (newVal < limit) {
+                    playConfig.wordCount = limit;
+                }
+            }
+        });
+
         const placedWords = ref([]); // List of placed words with clues and grid positions
         const gridCells = ref([]); // 2D array of cells
         const acrossClues = ref([]); // Across clues list

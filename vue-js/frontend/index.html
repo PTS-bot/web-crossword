@@ -99,7 +99,7 @@
                             <div class="form-group-top" v-if="selectedPlayDirs.length > 0">
                                 <label for="wordCountInput">Shuffle count: <span class="highlight">{{ playConfig.wordCount }} / {{ maxAvailableWords }} words</span></label>
                                 <div class="range-wrap-top">
-                                    <input type="range" id="wordCountInput" v-model.number="playConfig.wordCount" min="3" :max="Math.max(3, maxAvailableWords)" step="1">
+                                    <input type="range" id="wordCountInput" v-model.number="playConfig.wordCount" min="0" :max="Math.max(3, maxAvailableWords)" step="1">
                                 </div>
                             </div>
                             <div class="form-group-top flex-1" v-else>
@@ -279,7 +279,7 @@
                 </div>
                 <div class="game-hbar-right">
                     <span v-if="hasOpenedSecondLang" class="second-lang-badge animate-fade-in">
-                        <i class="fas fa-language"></i> เกมนี้ถูกเป็นภาษาที่ 2 แล้ว
+                        <i class="fas fa-language"></i> เกมนี้อยู่ในหมวดหลายภาษา
                     </span>
                 </div>
             </div>

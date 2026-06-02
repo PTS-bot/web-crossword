@@ -93,7 +93,7 @@ createApp({
                     showToast('🚪 Logged out successfully', 'info');
                     currentUser.value = null;
                     setTimeout(() => {
-                        window.location.href = 'index.html#auth';
+                        window.location.href = 'admin.html#auth';
                     }, 1000);
                 } else {
                     showToast('❌ Logout failed', 'error');
