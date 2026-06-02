@@ -71,10 +71,15 @@ createApp({
             try {
                 const response = await fetch(`${API_URL}/auth/profile`, { credentials: 'include' });
                 const data = await response.json();
-                if (data.success && data.authenticated) {
-                    currentUser.value = data.user;
-                    if (data.user.role === 'admin') {
-                        fetchAdminDashboardData();
+                if (data.success) {
+                    allowSeedMockData.value = !!data.allowSeedMockData;
+                    if (data.authenticated) {
+                        currentUser.value = data.user;
+                        if (data.user.role === 'admin') {
+                            fetchAdminDashboardData();
+                        }
+                    } else {
+                        currentUser.value = null;
                     }
                 } else {
                     currentUser.value = null;
@@ -110,6 +115,8 @@ createApp({
         const dashboardSearchQuery = ref('');
         const dashboardSelectedUser = ref(null);
         const dashboardMetric = ref('score'); // default: words per second
+        const allowSeedMockData = ref(false);
+        const csvIncludeDate = ref(false);
         let dashboardChartInstance = null;
 
         // Labs for performance stats
@@ -222,6 +229,26 @@ createApp({
                 }
             } catch (e) {
                 showToast('❌ Connection error while seeding data', 'error');
+            }
+        };
+
+        const clearMockData = async () => {
+            if (!confirm('This will DELETE all mock users and rankings created by Seed Mock Data. Continue?')) return;
+            try {
+                showToast('⏳ Clearing mock data...', 'info');
+                const res = await fetch(`${API_URL}/admin/clear-mock-data`, {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showToast(`✅ ${data.message}`, 'success');
+                    await fetchAdminDashboardData();
+                } else {
+                    showToast(`❌ ${data.message}`, 'error');
+                }
+            } catch (e) {
+                showToast('❌ Connection error while clearing data', 'error');
             }
         };
 
@@ -499,35 +526,52 @@ createApp({
                 return new Date(a.createdAt) - new Date(b.createdAt);
             });
             
-            // Construct CSV Content
-            const headers = ['Username', 'Round', 'Date', 'Words per Second (w/s)', 'Words Solved', 'Clues Used', 'Time Taken (seconds)'];
-            const rows = [headers];
+            // Get the currently selected metric key
+            const metricKey = dashboardMetric.value; // e.g. 'score', 'wordCount', 'revealsUsed', 'time'
+            const metricInfo = activeMetricInfo.value;
+            const includeDate = csvIncludeDate.value;
             
-            const userRoundCounter = {};
+            // Group scores by username, preserving round order
+            const userRoundsMap = {}; // { username: [ {value, date}, ... ] }
+            let maxRounds = 0;
             
             filteredScores.forEach(s => {
                 const username = s.playerName;
-                if (!userRoundCounter[username]) {
-                    userRoundCounter[username] = 0;
+                if (!userRoundsMap[username]) {
+                    userRoundsMap[username] = [];
                 }
-                userRoundCounter[username]++;
-                
-                const roundNum = userRoundCounter[username];
+                const val = s[metricKey] !== undefined ? (typeof s[metricKey] === 'number' ? s[metricKey].toFixed(4) : String(s[metricKey])) : '0';
                 const dateStr = s.createdAt ? new Date(s.createdAt).toISOString() : '';
-                const wps = s.score !== undefined ? s.score.toFixed(4) : '0';
-                const words = s.wordCount !== undefined ? s.wordCount : '0';
-                const clues = s.revealsUsed !== undefined ? s.revealsUsed : '0';
-                const time = s.time !== undefined ? s.time : '0';
-                
-                rows.push([
-                    username,
-                    roundNum,
-                    dateStr,
-                    wps,
-                    words,
-                    clues,
-                    time
-                ]);
+                userRoundsMap[username].push({ val, dateStr });
+                if (userRoundsMap[username].length > maxRounds) {
+                    maxRounds = userRoundsMap[username].length;
+                }
+            });
+            
+            // Build headers: Username, Round 1, Round 2, ..., Round N
+            const headers = ['Username'];
+            for (let i = 1; i <= maxRounds; i++) {
+                headers.push(`Round ${i}`);
+            }
+            const rows = [headers];
+            
+            // Build rows: one per unique username
+            const sortedUsernames = Object.keys(userRoundsMap).sort((a, b) => a.localeCompare(b));
+            sortedUsernames.forEach(username => {
+                const rounds = userRoundsMap[username];
+                const row = [username];
+                for (let i = 0; i < maxRounds; i++) {
+                    if (i < rounds.length) {
+                        if (includeDate && rounds[i].dateStr) {
+                            row.push(`${rounds[i].val}(${rounds[i].dateStr})`);
+                        } else {
+                            row.push(rounds[i].val);
+                        }
+                    } else {
+                        row.push(''); // empty cell if this user has fewer rounds
+                    }
+                }
+                rows.push(row);
             });
             
             // Convert to CSV format with UTF-8 BOM for Thai/English Excel support
@@ -540,14 +584,15 @@ createApp({
             const secondLangText = dashboardOnlySecondLang.value ? '_2ndLang' : '';
             const labText = dashboardSelectedLabs.value.length > 0 ? `_${dashboardSelectedLabs.value.join('_')}` : '';
             const filterText = dashboardSearchQuery.value.trim() ? `_${dashboardSearchQuery.value.trim().replace(/[*?]/g, '')}` : '';
+            const metricText = `_${metricKey}`;
             link.setAttribute('href', url);
-            link.setAttribute('download', `user_performance_export${filterText}${labText}${secondLangText}.csv`);
+            link.setAttribute('download', `user_performance_export${filterText}${labText}${secondLangText}${metricText}.csv`);
             link.style.visibility = 'hidden';
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
             
-            showToast('📊 CSV file exported successfully!', 'success');
+            showToast(`📊 CSV exported (${metricInfo.label}) — ${sortedUsernames.length} users, max ${maxRounds} rounds`, 'success');
         };
 
         onMounted(() => {
@@ -578,11 +623,14 @@ createApp({
             changeMetric,
             fetchAdminDashboardData,
             seedMockData,
+            clearMockData,
+            allowSeedMockData,
             filteredUsers,
             dashboardSelectedUserStats,
             selectDashboardUser,
             updateChart,
             exportFilteredUsersCSV,
+            csvIncludeDate,
             
             // Labs filtering
             dashboardLabs,

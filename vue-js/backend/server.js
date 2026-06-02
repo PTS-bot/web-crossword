@@ -216,15 +216,17 @@ app.post('/api/auth/logout', (req, res) => {
 
 // 5.5 Authentication: Profile (ดึงข้อมูลผู้ล็อกอินปัจจุบัน)
 app.get('/api/auth/profile', async (req, res) => {
+    const envVal = process.env.ALLOW_SEED_MOCK_DATA;
+    const allowSeedMockData = envVal === 'true' || envVal === 'ture';
     if (req.session.user) {
         // Re-fetch fresh avatar from DB
         try {
             const user = await User.findOne({ username: req.session.user.username });
             if (user) req.session.user.avatar = user.avatar || 'avatar1';
         } catch(e) {}
-        res.json({ success: true, authenticated: true, user: req.session.user });
+        res.json({ success: true, authenticated: true, user: req.session.user, allowSeedMockData });
     } else {
-        res.json({ success: true, authenticated: false, user: null });
+        res.json({ success: true, authenticated: false, user: null, allowSeedMockData });
     }
 });
 
@@ -561,6 +563,17 @@ app.post('/api/admin/seed-mock-data', checkAdmin, async (req, res) => {
             success: true, 
             message: `Successfully seeded ${mockUsers.length} mock users and ${mockScores.length} rounds of performance scores!` 
         });
+    } catch (e) {
+        res.status(500).json({ success: false, message: e.message });
+    }
+});
+
+app.post('/api/admin/clear-mock-data', checkAdmin, async (req, res) => {
+    try {
+        const mockUsernames = ['6414001', '6414002', '6414003', '6414004', '6414005', 'somchai_s', 'somsri_k', 'student_99', 'crossword_pro', 'kitty_learner'];
+        await User.deleteMany({ username: { $in: mockUsernames } });
+        await Ranking.deleteMany({ playerName: { $in: mockUsernames } });
+        res.json({ success: true, message: 'Successfully cleared mock users and scores!' });
     } catch (e) {
         res.status(500).json({ success: false, message: e.message });
     }

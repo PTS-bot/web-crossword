@@ -83,13 +83,22 @@
                             <h2>📊 User Performance Dashboard</h2>
                             <p>Analyze user growth, individual speeds, and group averages over time.</p>
                         </div>
-                        <div style="display: flex; gap: 10px;">
-                            <button class="btn btn-success" @click="exportFilteredUsersCSV" :disabled="filteredUsers.length === 0" title="Export filtered users performance to CSV">
-                                <i class="fas fa-file-export"></i> Export CSV
+                        <div style="display: flex; gap: 10px; align-items: center;">
+                            <label style="display:flex; align-items:center; gap:5px; font-size:0.78rem; color:var(--text-muted); cursor:pointer; user-select:none; white-space:nowrap;">
+                                <input type="checkbox" v-model="csvIncludeDate" style="cursor:pointer; accent-color:var(--primary);">
+                                <i class="fas fa-calendar-alt" style="color:var(--primary);"></i> Date in CSV
+                            </label>
+                            <button class="btn btn-success" @click="exportFilteredUsersCSV" :disabled="filteredUsers.length === 0" title="Export filtered users performance to CSV (pivoted by selected metric)">
+                                <i class="fas fa-file-export"></i> Export CSV ({{ activeMetricInfo.label }})
                             </button>
-                            <button class="btn btn-warning" @click="seedMockData" title="Generate 10 fake users with random game scores for testing">
-                                <i class="fas fa-database"></i> Seed Mock Data
-                            </button>
+                            <template v-if="allowSeedMockData">
+                                <button class="btn btn-warning" @click="seedMockData" title="Generate 10 fake users with random game scores for testing">
+                                    <i class="fas fa-database"></i> Seed Mock Data
+                                </button>
+                                <button class="btn btn-danger" @click="clearMockData" title="Remove mock users and scores created by Seed Mock Data">
+                                    <i class="fas fa-trash-alt"></i> Clear Mock Data
+                                </button>
+                            </template>
                         </div>
                     </div>
 

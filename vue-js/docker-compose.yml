@@ -32,6 +32,7 @@ services:
       NODE_ENV: ${NODE_ENV}
       ADMIN_USERNAME: ${ADMIN_USERNAME}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      ALLOW_SEED_MOCK_DATA: ${ALLOW_SEED_MOCK_DATA}
     volumes:
       - ./backend:/app
       - /app/node_modules # Avoid overriding node_modules inside container
