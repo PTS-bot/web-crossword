@@ -11,6 +11,7 @@
     <link rel="stylesheet" href="style.css">
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="prompt-config.js"></script>
     <style>[v-cloak]{display:none!important}</style>
 </head>
 <body>
@@ -336,6 +337,34 @@
                 </div>
             </div>
 
+            <!-- Solved Words Panel (left column, visible during play & after completion, draggable) -->
+            <div class="solved-words-panel"
+                 :style="swpPanelStyle"
+                 v-if="(gameState === 'playing' || gameState === 'completed')">
+                <div class="swp-drag-handle"
+                     @mousedown="startSWPDrag"
+                     @touchstart="startSWPDrag">
+                    <i class="fas fa-ellipsis-h"></i>
+                </div>
+                <div class="swp-header">
+                    <i class="fas fa-check-circle"></i>
+                    <span>Solved Words</span>
+                    <span class="swp-count">{{ solvedWords.length }}</span>
+                </div>
+                <div class="swp-list">
+                    <div class="swp-empty" v-if="solvedWords.length === 0">
+                        <i class="fas fa-puzzle-piece"></i>
+                        <span>Fill words correctly to see them here</span>
+                    </div>
+                    <div class="solved-word-item" v-for="(sw, idx) in solvedWords" :key="idx">
+                        <span class="sw-word-text">{{ sw.word }}</span>
+                        <button class="sw-copy-btn" @click="copyWordPrompt(sw)" title="Copy AI learning prompt">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
             <div class="canvas-viewport"
                  ref="canvasViewport"
                  @pointerdown="startPanning"
@@ -495,7 +524,7 @@
         </div><!-- /game-play-container -->
 
         <!-- ── SUCCESS OVERLAY ── -->
-        <div class="success-overlay" v-if="gameState === 'completed'">
+        <div class="success-overlay" v-if="showCompletionOverlay">
             <div class="success-card animate-slide-down">
                 <div class="success-icon"><i class="fas fa-trophy"></i></div>
                 <h2>Congratulations! Puzzle Solved!</h2>
@@ -538,12 +567,16 @@
                 </div>
                 <div class="submit-success-msg" v-else>
                     <i class="fas fa-check-circle text-success" style="font-size:2.5rem;margin-bottom:12px;display:block;"></i>
-                    <p class="text-success font-bold" style="font-size:1.1rem;margin-bottom:20px;">Score saved to leaderboard!</p>
+                    <p class="text-success font-bold" style="font-size:1.1rem;margin-bottom:12px;">Score saved to leaderboard!</p>
+                    <p style="font-size:0.82rem; color:var(--text-muted);">Closing automatically...</p>
                 </div>
 
-                <div class="success-actions" style="margin-top:15px;">
-                    <button class="btn btn-primary btn-block btn-lg" @click="backToSetupAfterPlay">
-                        <i class="fas fa-redo"></i> Back to Home & View Rankings
+                <div class="success-actions" style="margin-top:15px; display:flex; gap:10px;">
+                    <button class="btn btn-outline btn-block" @click="closeCompletionOverlay">
+                        <i class="fas fa-times"></i> Close & View Words
+                    </button>
+                    <button class="btn btn-primary btn-block" @click="backToSetupAfterPlay">
+                        <i class="fas fa-home"></i> Back to Home
                     </button>
                 </div>
             </div>

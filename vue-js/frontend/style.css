@@ -1779,6 +1779,170 @@ body {
 .canvas-hint i { margin-right: 5px; }
 
 /* ============================================================
+   ✅ SOLVED WORDS PANEL (left glassmorphic column)
+   ============================================================ */
+.solved-words-panel {
+    position: absolute;
+    top: 130px;
+    left: 16px;
+    width: 180px;
+    max-height: 350px;
+    z-index: 20;
+    display: flex;
+    flex-direction: column;
+    background: rgba(18, 24, 36, 0.92);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    pointer-events: auto;
+    box-shadow: var(--shadow-lg), 0 0 0 1px rgba(255,255,255,0.04);
+    animation: swpFadeIn 0.4s ease-out;
+}
+
+@keyframes swpFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.swp-drag-handle {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 14px;
+    font-size: 0.65rem;
+    color: rgba(255, 255, 255, 0.2);
+    cursor: grab;
+    background: rgba(255, 255, 255, 0.03);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    transition: background 0.15s, color 0.15s;
+    user-select: none;
+}
+.swp-drag-handle:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.5);
+}
+.swp-drag-handle:active {
+    cursor: grabbing;
+}
+
+.swp-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 14px 10px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--success);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+}
+
+.swp-header i {
+    font-size: 0.85rem;
+}
+
+.swp-count {
+    margin-left: auto;
+    background: rgba(0, 230, 118, 0.15);
+    color: var(--success);
+    font-size: 0.7rem;
+    font-weight: 800;
+    padding: 2px 8px;
+    border-radius: 20px;
+    min-width: 24px;
+    text-align: center;
+}
+
+.swp-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 6px 0;
+}
+
+.swp-list::-webkit-scrollbar {
+    width: 4px;
+}
+
+.swp-list::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+}
+
+.swp-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 30px 10px;
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    text-align: center;
+    gap: 8px;
+}
+
+.swp-empty i {
+    font-size: 1.5rem;
+    opacity: 0.4;
+}
+
+.solved-word-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 7px 12px;
+    transition: background 0.2s;
+    cursor: default;
+}
+
+.solved-word-item:hover {
+    background: rgba(0, 210, 255, 0.06);
+}
+
+.sw-copy-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    background: rgba(0, 210, 255, 0.08);
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    flex-shrink: 0;
+}
+
+.sw-copy-btn:hover {
+    background: rgba(0, 210, 255, 0.2);
+    color: var(--primary);
+    border-color: rgba(0, 210, 255, 0.3);
+    transform: scale(1.08);
+}
+
+.sw-copy-btn:active {
+    transform: scale(0.95);
+}
+
+.sw-word-text {
+    font-family: 'Outfit', monospace;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--text-main);
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+
+/* ============================================================
    📖 CLUES MODAL POPUP
    ============================================================ */
 .clues-modal-overlay {

@@ -53,6 +53,8 @@ createApp({
         const rankingLoading = ref(false);
         const scoreSubmitted = ref(false);
         const submittingScore = ref(false);
+        const showCompletionOverlay = ref(false);
+        const solvedWords = ref([]); // { word, clue, clue2, solvedAt }
         const rankingForm = reactive({
             playerName: ''
         });
@@ -338,6 +340,14 @@ createApp({
         let _statsDragOriginX = 0;
         let _statsDragOriginY = 0;
 
+        // Solved Words panel dragging state
+        const swpPosition = reactive({ x: 0, y: 0 });
+        const isDraggingSWP = ref(false);
+        let _swpDragStartX = 0;
+        let _swpDragStartY = 0;
+        let _swpDragOriginX = 0;
+        let _swpDragOriginY = 0;
+
         const authForm = reactive({
             loginUsername: '',
             loginPassword: '',
@@ -375,6 +385,12 @@ createApp({
         const statsPanelStyle = computed(() => {
             return {
                 transform: `translate(${statsPosition.x}px, ${statsPosition.y}px)`
+            };
+        });
+
+        const swpPanelStyle = computed(() => {
+            return {
+                transform: `translate(${swpPosition.x}px, ${swpPosition.y}px)`
             };
         });
 
@@ -723,8 +739,11 @@ createApp({
                 startTimer();
                 revealMode.value = false;
                 revealCount.value = 0;
+                solvedWords.value = [];
+                checkSolvedWords();
 
                 nextTick(() => {
+                    centerGrid();
                     const allClues = [...acrossClues.value, ...downClues.value];
                     if (allClues.length > 0) {
                         selectClue(allClues[0]);
@@ -1061,6 +1080,41 @@ createApp({
             window.removeEventListener('touchend', stopStatsDrag);
         };
 
+        // --- Dragging for Solved Words Panel ---
+        const startSWPDrag = (e) => {
+            isDraggingSWP.value = true;
+            const clientX = e.type.startsWith('touch') ? e.touches[0].clientX : e.clientX;
+            const clientY = e.type.startsWith('touch') ? e.touches[0].clientY : e.clientY;
+            _swpDragStartX = clientX;
+            _swpDragStartY = clientY;
+            _swpDragOriginX = swpPosition.x;
+            _swpDragOriginY = swpPosition.y;
+            if (e.type.startsWith('touch')) {
+                window.addEventListener('touchmove', handleSWPDrag, { passive: false });
+                window.addEventListener('touchend', stopSWPDrag);
+            } else {
+                window.addEventListener('mousemove', handleSWPDrag);
+                window.addEventListener('mouseup', stopSWPDrag);
+            }
+        };
+
+        const handleSWPDrag = (e) => {
+            if (!isDraggingSWP.value) return;
+            const clientX = e.type.startsWith('touch') ? e.touches[0].clientX : e.clientX;
+            const clientY = e.type.startsWith('touch') ? e.touches[0].clientY : e.clientY;
+            swpPosition.x = _swpDragOriginX + (clientX - _swpDragStartX);
+            swpPosition.y = _swpDragOriginY + (clientY - _swpDragStartY);
+        };
+
+        const stopSWPDrag = (e) => {
+            if (!isDraggingSWP.value) return;
+            isDraggingSWP.value = false;
+            window.removeEventListener('mousemove', handleSWPDrag);
+            window.removeEventListener('mouseup', stopSWPDrag);
+            window.removeEventListener('touchmove', handleSWPDrag);
+            window.removeEventListener('touchend', stopSWPDrag);
+        };
+
         const centerGrid = () => {
             if (gridCells.value.length === 0) return;
             const rows = gridCells.value.length;
@@ -1099,6 +1153,8 @@ createApp({
             cell.checked = true;
             cell.isCorrect = true;
             revealCount.value++;
+            checkSolvedWords();
+            checkAutoCompletion();
             nextTick(() => {
                 const el = document.getElementById(`cell-input-${row}-${col}`);
                 if (el) el.focus();
@@ -1118,6 +1174,7 @@ createApp({
                 });
             });
             revealCount.value = 0;
+            checkSolvedWords();
             showToast('🔄 Answers cleared', 'info');
         };
 
@@ -1136,6 +1193,10 @@ createApp({
             revealCount.value = 0;
             useSecondLang.value = false;
             hasOpenedSecondLang.value = false;
+            showCompletionOverlay.value = false;
+            solvedWords.value = [];
+            swpPosition.x = 0;
+            swpPosition.y = 0;
             for (const key in flippedClues) {
                 delete flippedClues[key];
             }
@@ -1178,6 +1239,11 @@ createApp({
             if (allCorrect) {
                 gameState.value = 'completed';
                 stopTimer();
+                showCompletionOverlay.value = true;
+
+                // Ensure all words are in the solvedWords list
+                checkSolvedWords();
+
                 showToast('🏆 Excellent! All answers are correct!', 'success');
             } else {
                 if (emptyCells > 0) {
@@ -1185,6 +1251,31 @@ createApp({
                 } else {
                     showToast('❌ Some answers are incorrect. Please correct the highlighted cells.', 'error');
                 }
+            }
+        };
+
+        const checkAutoCompletion = () => {
+            if (gameState.value !== 'playing') return;
+            
+            let allCorrect = true;
+            let totalActiveCells = 0;
+
+            gridCells.value.forEach(row => {
+                row.forEach(cell => {
+                    if (cell.isActive) {
+                        totalActiveCells++;
+                        const guessChar = cell.guess.trim().toUpperCase();
+                        const correctChar = cell.char.toUpperCase();
+
+                        if (!guessChar || guessChar !== correctChar) {
+                            allCorrect = false;
+                        }
+                    }
+                });
+            });
+
+            if (totalActiveCells > 0 && allCorrect) {
+                checkAnswers();
             }
         };
 
@@ -1325,6 +1416,80 @@ createApp({
             return (count / Math.max(1, timerSeconds.value)).toFixed(3);
         });
 
+        // Copy AI prompt for a solved word to clipboard
+        const copyWordPrompt = async (wordEntry) => {
+            try {
+                const prompt = buildWordPrompt(wordEntry.word, wordEntry.clue, wordEntry.clue2);
+                await navigator.clipboard.writeText(prompt);
+                showToast(`📋 Copied prompt for "${wordEntry.word}" to clipboard!`, 'success');
+            } catch (e) {
+                // Fallback for older browsers
+                const textArea = document.createElement('textarea');
+                textArea.value = buildWordPrompt(wordEntry.word, wordEntry.clue, wordEntry.clue2);
+                textArea.style.position = 'fixed';
+                textArea.style.opacity = '0';
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                showToast(`📋 Copied prompt for "${wordEntry.word}"!`, 'success');
+            }
+        };
+
+        // Close the completion overlay but stay on game page
+        const closeCompletionOverlay = () => {
+            showCompletionOverlay.value = false;
+        };
+
+        // Check each clue and add newly solved words to solvedWords list (real-time)
+        const checkSolvedWords = () => {
+            const allClues = [...acrossClues.value, ...downClues.value];
+            
+            const currentlyCorrectKeys = new Set();
+            const correctClues = [];
+            
+            allClues.forEach(clue => {
+                let allCorrect = true;
+                for (let i = 0; i < clue.word.length; i++) {
+                    const cx = (clue.direction === 'across') ? clue.x + i : clue.x;
+                    const cy = (clue.direction === 'across') ? clue.y : clue.y + i;
+                    const cell = gridCells.value[cy] && gridCells.value[cy][cx];
+                    if (!cell || cell.guess.trim().toUpperCase() !== clue.word[i].toUpperCase()) {
+                        allCorrect = false;
+                        break;
+                    }
+                }
+                
+                if (allCorrect) {
+                    const key = clue.word + '_' + clue.direction;
+                    currentlyCorrectKeys.add(key);
+                    correctClues.push(clue);
+                }
+            });
+            
+            const filteredSolved = solvedWords.value.filter(sw => {
+                const key = sw.word + '_' + sw.direction;
+                return currentlyCorrectKeys.has(key);
+            });
+            
+            const existingKeys = new Set(filteredSolved.map(sw => sw.word + '_' + sw.direction));
+            
+            correctClues.forEach(clue => {
+                const key = clue.word + '_' + clue.direction;
+                if (!existingKeys.has(key)) {
+                    filteredSolved.push({
+                        word: clue.word,
+                        clue: clue.clue,
+                        clue2: clue.clue2 || '',
+                        direction: clue.direction,
+                        number: clue.number
+                    });
+                }
+            });
+            
+            solvedWords.value = filteredSolved;
+        };
+
         const handleCellKeydown = (e, r, c) => {
             const key = e.key;
 
@@ -1358,22 +1523,28 @@ createApp({
                 if (gridCells.value[nextR] && gridCells.value[nextR][nextC] && gridCells.value[nextR][nextC].isActive) {
                     focusCell(nextR, nextC);
                 }
+                checkSolvedWords();
                 return;
             }
 
             if (key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
                 e.preventDefault();
-                const cell = gridCells.value[r][c];
-                if (!cell.revealed) {
-                    cell.guess = key.toUpperCase();
-                    cell.checked = false;
-                }
+                if (/^[a-zA-Z]$/.test(key)) {
+                    const cell = gridCells.value[r][c];
+                    if (!cell.revealed) {
+                        cell.guess = key.toUpperCase();
+                        cell.checked = false;
+                    }
 
-                let nextR = (activeDirection.value === 'down') ? r + 1 : r;
-                let nextC = (activeDirection.value === 'across') ? c + 1 : c;
+                    let nextR = (activeDirection.value === 'down') ? r + 1 : r;
+                    let nextC = (activeDirection.value === 'across') ? c + 1 : c;
 
-                if (gridCells.value[nextR] && gridCells.value[nextR][nextC] && gridCells.value[nextR][nextC].isActive) {
-                    focusCell(nextR, nextC);
+                    if (gridCells.value[nextR] && gridCells.value[nextR][nextC] && gridCells.value[nextR][nextC].isActive) {
+                        focusCell(nextR, nextC);
+                    }
+                    // Check for newly solved words after input
+                    checkSolvedWords();
+                    checkAutoCompletion();
                 }
             }
         };
@@ -1462,6 +1633,10 @@ createApp({
                 if (data.success) {
                     showToast('🏆 Score saved to leaderboard!', 'success');
                     scoreSubmitted.value = true;
+                    // Auto-close overlay after 2 seconds
+                    setTimeout(() => {
+                        showCompletionOverlay.value = false;
+                    }, 2000);
                 } else {
                     showToast(`❌ Failed to save score: ${data.message}`, 'error');
                 }
@@ -1536,6 +1711,9 @@ createApp({
             statsPanelStyle,
             startStatsDrag,
             isDraggingStats,
+            swpPanelStyle,
+            startSWPDrag,
+            isDraggingSWP,
 
             // Play & Rankings states/actions
             crosswordDirs,
@@ -1546,12 +1724,16 @@ createApp({
             rankingLoading,
             scoreSubmitted,
             submittingScore,
+            showCompletionOverlay,
+            solvedWords,
             rankingForm,
             toggleSelectPlayDir,
             formatSeconds,
             selectedDirsDisplay,
             submitScore,
             backToSetupAfterPlay,
+            copyWordPrompt,
+            closeCompletionOverlay,
             formatRankDate,
 
             // Profile / Auth
