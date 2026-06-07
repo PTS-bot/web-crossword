@@ -1714,6 +1714,34 @@ body {
     background: rgba(0, 210, 255, 0.25);
 }
 
+/* Ez Mode Toggle Button */
+.ghb-ez-toggle {
+    border-color: rgba(245, 158, 11, 0.2);
+    color: var(--text-muted);
+}
+.ghb-ez-toggle:hover {
+    background: rgba(245, 158, 11, 0.08);
+    border-color: rgba(245, 158, 11, 0.35);
+}
+.ghb-ez-toggle.ghb-ez-on {
+    background: rgba(245, 158, 11, 0.15);
+    border-color: rgba(245, 158, 11, 0.45);
+    color: #f59e0b;
+    font-weight: 600;
+    box-shadow: 0 0 12px rgba(245, 158, 11, 0.12);
+}
+.ghb-ez-toggle.ghb-ez-on:hover {
+    background: rgba(245, 158, 11, 0.25);
+}
+.ghb-ez-toggle:disabled,
+.ghb-ez-toggle.ghb-ez-on:disabled {
+    cursor: not-allowed;
+}
+.ghb-ez-toggle.ghb-ez-on:disabled:hover {
+    background: rgba(245, 158, 11, 0.15);
+    border-color: rgba(245, 158, 11, 0.45);
+}
+
 .ghb-check {
     background: rgba(0, 230, 118, 0.1);
     border-color: rgba(0, 230, 118, 0.35);

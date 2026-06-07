@@ -162,6 +162,10 @@
                                         <span>2nd Language Clues</span>
                                     </label>
                                     <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; user-select: none; font-size: 0.85rem; color: var(--text-muted);">
+                                        <input type="checkbox" v-model="leaderboardFilterEzMode" style="width: 15px; height: 15px; accent-color: #f59e0b;">
+                                        <span>Ez Mode</span>
+                                    </label>
+                                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; user-select: none; font-size: 0.85rem; color: var(--text-muted);">
                                         <input type="checkbox" v-model="leaderboardShowGuests" style="width: 15px; height: 15px; accent-color: var(--primary);">
                                         <span>Show Guests</span>
                                     </label>
@@ -283,6 +287,14 @@
                         <i class="fas fa-language"></i>
                         <span>2nd Lang Clues</span>
                     </button>
+                    <button class="ghb-btn ghb-ez-toggle"
+                            :class="{ 'ghb-ez-on': ezMode }"
+                            :disabled="ezMode"
+                            @click="ezMode = true"
+                            :title="ezMode ? 'Ez Mode is active (cannot be turned off)' : 'Enable Ez Mode — show all words in Solved Words panel (cannot be turned off)'">
+                        <i class="fas fa-star"></i>
+                        <span>Ez Mode</span>
+                    </button>
                 </div>
                 <div class="game-hbar-right">
                     <button class="ghb-btn ghb-check" @click="checkAnswers" title="Check Answers">
@@ -349,19 +361,42 @@
                 <div class="swp-header">
                     <i class="fas fa-check-circle"></i>
                     <span>Solved Words</span>
-                    <span class="swp-count">{{ solvedWords.length }}</span>
+                    <span class="swp-count" v-if="!ezMode">{{ solvedWords.length }}</span>
+                    <span class="swp-count" v-else>{{ solvedWords.length }} / {{ allGameWords.length }}</span>
+                    <span class="swp-ez-badge" v-if="ezMode"><i class="fas fa-star"></i> Ez</span>
                 </div>
                 <div class="swp-list">
-                    <div class="swp-empty" v-if="solvedWords.length === 0">
-                        <i class="fas fa-puzzle-piece"></i>
-                        <span>Fill words correctly to see them here</span>
-                    </div>
-                    <div class="solved-word-item" v-for="(sw, idx) in solvedWords" :key="idx">
-                        <span class="sw-word-text">{{ sw.word }}</span>
-                        <button class="sw-copy-btn" @click="copyWordPrompt(sw)" title="Copy AI learning prompt">
-                            <i class="fas fa-copy"></i>
-                        </button>
-                    </div>
+                    <!-- Normal Mode: show only solved words -->
+                    <template v-if="!ezMode">
+                        <div class="swp-empty" v-if="solvedWords.length === 0">
+                            <i class="fas fa-puzzle-piece"></i>
+                            <span>Fill words correctly to see them here</span>
+                        </div>
+                        <div class="solved-word-item" v-for="(sw, idx) in solvedWords" :key="idx">
+                            <span class="sw-word-text">{{ sw.word }}</span>
+                            <button class="sw-copy-btn" @click="copyWordPrompt(sw)" title="Copy AI learning prompt">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                        </div>
+                    </template>
+                    <!-- Ez Mode: show ALL words, but copy only for solved -->
+                    <template v-else>
+                        <div class="swp-empty" v-if="allGameWords.length === 0">
+                            <i class="fas fa-puzzle-piece"></i>
+                            <span>No words in this game yet</span>
+                        </div>
+                        <div class="solved-word-item"
+                             :class="{ 'sw-unsolved': !gw.isSolved }"
+                             v-for="(gw, idx) in allGameWords" :key="'ez-'+idx">
+                            <span class="sw-word-text">{{ gw.word }}</span>
+                            <button class="sw-copy-btn" v-if="gw.isSolved" @click="copyWordPrompt(gw)" title="Copy AI learning prompt">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                            <span class="sw-pending-badge" v-else title="Solve this word to unlock copy">
+                                <i class="fas fa-lock"></i>
+                            </span>
+                        </div>
+                    </template>
                 </div>
             </div>
 

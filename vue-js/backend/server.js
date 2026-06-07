@@ -96,6 +96,7 @@ const rankingSchema = new mongoose.Schema({
     time: { type: Number, required: true },
     score: { type: Number, required: true },
     revealsUsed: { type: Number, default: 0 },
+    useEzMode: { type: Boolean, default: false },
     createdAt: { type: Date, default: Date.now }
 });
 
@@ -584,22 +585,34 @@ app.post('/api/admin/clear-mock-data', checkAdmin, async (req, res) => {
 // GET /api/rankings - Get top 50 rankings, optionally filtered by labsKey
 app.get('/api/rankings', async (req, res) => {
     try {
-        const { labsKey, onlySecondLang, showGuests } = req.query;
+        const { labsKey, onlySecondLang, showGuests, onlyEzMode } = req.query;
         let query = {};
         
         const isSecondLang = onlySecondLang === 'true';
+        const isEzMode = onlyEzMode === 'true';
         
         if (labsKey && labsKey !== 'all') {
-            // Strip any (2) prefix first to clean it, then append based on isSecondLang
-            const cleanKey = labsKey.replace(/^\(2\)/, '');
-            query.labsKey = isSecondLang ? `(2)${cleanKey}` : cleanKey;
+            // Strip any (2) or [EZ] prefix first to clean it, then append based on filters
+            let cleanKey = labsKey.replace(/^\(2\)/, '').replace(/^\[EZ\]/, '');
+            let finalKey = cleanKey;
+            if (isSecondLang) finalKey = `(2)${finalKey}`;
+            if (isEzMode) finalKey = `[EZ]${finalKey}`;
+            query.labsKey = finalKey;
         } else {
-            // For "All Labs"
-            if (isSecondLang) {
-                query.labsKey = { $regex: /^\(2\)/ };
+            // For "All Labs" — build regex patterns
+            const regexParts = [];
+            if (isSecondLang && isEzMode) {
+                // Must start with [EZ](2) or (2)[EZ] — we use [EZ](2) convention
+                query.labsKey = { $regex: /^\[EZ\]\(2\)/ };
+            } else if (isSecondLang) {
+                // Must start with (2) but NOT have [EZ]
+                query.labsKey = { $regex: /^(?!\[EZ\])\(2\)/ };
+            } else if (isEzMode) {
+                // Must start with [EZ] but NOT have (2) after it
+                query.labsKey = { $regex: /^\[EZ\](?!\(2\))/ };
             } else {
-                // Match anything that does NOT start with (2)
-                query.labsKey = { $regex: /^(?!\(2\))/ };
+                // No [EZ] and no (2) prefix
+                query.labsKey = { $regex: /^(?!\[EZ\])(?!\(2\))/ };
             }
         }
         
@@ -617,7 +630,7 @@ app.get('/api/rankings', async (req, res) => {
 // POST /api/rankings - Submit a new score
 app.post('/api/rankings', async (req, res) => {
     try {
-        const { playerName, playerAvatar, labs, wordCount, time, revealsUsed, unrevealedWordCount, useSecondLang } = req.body;
+        const { playerName, playerAvatar, labs, wordCount, time, revealsUsed, unrevealedWordCount, useSecondLang, useEzMode } = req.body;
         if (!playerName || !labs || !Array.isArray(labs) || labs.length === 0 || !wordCount || !time) {
             return res.status(400).json({ success: false, message: 'playerName, labs, wordCount, time are required' });
         }
@@ -628,6 +641,9 @@ app.post('/api/rankings', async (req, res) => {
         if (useSecondLang) {
             labsKey = `(2)${labsKey}`;
         }
+        if (useEzMode) {
+            labsKey = `[EZ]${labsKey}`;
+        }
 
         const newRanking = await Ranking.create({
             playerName: playerName.trim().substring(0, 20),
@@ -637,7 +653,8 @@ app.post('/api/rankings', async (req, res) => {
             wordCount,
             time,
             score,
-            revealsUsed: Number(revealsUsed) || 0
+            revealsUsed: Number(revealsUsed) || 0,
+            useEzMode: !!useEzMode
         });
 
         res.status(201).json({ success: true, data: newRanking, message: 'Score saved!' });

@@ -15,7 +15,9 @@ createApp({
         const useSecondLang = ref(false); // second language mode (safety switch inside game)
         const leaderboardFilterSecondLang = ref(false); // filters rankings for (2) games
         const leaderboardShowGuests = ref(true); // show guest players on the leaderboard
+        const leaderboardFilterEzMode = ref(false); // filters rankings for Ez mode games
         const hasOpenedSecondLang = ref(false); // tracks if user flipped at least one clue
+        const ezMode = ref(false); // Ez mode: shows all words in Solved Words panel
         const flippedClues = reactive({}); // tracks individual flipped clues: { [clueId]: boolean }
 
         // Timer state
@@ -55,6 +57,24 @@ createApp({
         const submittingScore = ref(false);
         const showCompletionOverlay = ref(false);
         const solvedWords = ref([]); // { word, clue, clue2, solvedAt }
+
+        // Ez Mode: computed list of all words in current game for the Solved Words panel
+        const allGameWords = computed(() => {
+            if (!ezMode.value) return [];
+            const allClues = [...acrossClues.value, ...downClues.value];
+            return allClues.map(clue => {
+                const key = clue.word + '_' + clue.direction;
+                const isSolved = solvedWords.value.some(sw => (sw.word + '_' + sw.direction) === key);
+                return {
+                    word: clue.word,
+                    clue: clue.clue,
+                    clue2: clue.clue2 || '',
+                    direction: clue.direction,
+                    number: clue.number,
+                    isSolved
+                };
+            });
+        });
         const rankingForm = reactive({
             playerName: ''
         });
@@ -690,7 +710,7 @@ createApp({
         };
 
         // Watch for selected directories, filter tabs, language filters, or guest toggles to refresh rankings
-        watch([rankingFilter, leaderboardFilterSecondLang, leaderboardShowGuests], () => {
+        watch([rankingFilter, leaderboardFilterSecondLang, leaderboardShowGuests, leaderboardFilterEzMode], () => {
             fetchRankings();
         });
 
@@ -1193,6 +1213,7 @@ createApp({
             revealCount.value = 0;
             useSecondLang.value = false;
             hasOpenedSecondLang.value = false;
+            ezMode.value = false;
             showCompletionOverlay.value = false;
             solvedWords.value = [];
             swpPosition.x = 0;
@@ -1618,6 +1639,12 @@ createApp({
                     params.append('onlySecondLang', 'false');
                 }
                 
+                if (leaderboardFilterEzMode.value) {
+                    params.append('onlyEzMode', 'true');
+                } else {
+                    params.append('onlyEzMode', 'false');
+                }
+                
                 params.append('showGuests', leaderboardShowGuests.value ? 'true' : 'false');
                 
                 url += `?${params.toString()}`;
@@ -1658,7 +1685,8 @@ createApp({
                     time: timerSeconds.value,
                     revealsUsed: revealCount.value,
                     unrevealedWordCount: getUnrevealedWordCount(),
-                    useSecondLang: hasOpenedSecondLang.value
+                    useSecondLang: hasOpenedSecondLang.value,
+                    useEzMode: ezMode.value
                 };
 
                 const response = await fetch(`${API_URL}/rankings`, {
@@ -1817,12 +1845,17 @@ createApp({
             useSecondLang,
             leaderboardFilterSecondLang,
             leaderboardShowGuests,
+            leaderboardFilterEzMode,
             hasOpenedSecondLang,
             flippedClues,
             handleClueClick,
             activeClue,
             getUnrevealedWordCount,
-            speedDisplay
+            speedDisplay,
+
+            // Ez Mode
+            ezMode,
+            allGameWords
         };
     }
 }).mount('#app');
